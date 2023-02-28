@@ -1,0 +1,11 @@
+include dash_chart_editor/dash_chart_editor.min.js
+include dash_chart_editor/dash_chart_editor.min.js.map
+include dash_chart_editor/async-*.js
+include dash_chart_editor/async-*.js.map
+include dash_chart_editor/*-shared.js
+include dash_chart_editor/*-shared.js.map
+include dash_chart_editor/metadata.json
+include dash_chart_editor/package-info.json
+include README.md
+include LICENSE
+include package.json

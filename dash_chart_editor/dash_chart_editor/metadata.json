@@ -1,0 +1,96 @@
+{
+  "src/lib/components/DashChartEditor.react.js": {
+    "description": "",
+    "displayName": "DashChartEditor",
+    "methods": [
+      {
+        "name": "loadFigure",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "figure",
+            "type": null
+          }
+        ],
+        "returns": null
+      },
+      {
+        "name": "updateOptions",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "{data, layout, frames}",
+            "type": null
+          }
+        ],
+        "returns": null
+      }
+    ],
+    "props": {
+      "id": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": ""
+      },
+      "data": {
+        "type": {
+          "name": "any"
+        },
+        "required": false,
+        "description": ""
+      },
+      "dataSources": {
+        "type": {
+          "name": "objectOf",
+          "value": {
+            "name": "array"
+          }
+        },
+        "required": false,
+        "description": ""
+      },
+      "layout": {
+        "type": {
+          "name": "any"
+        },
+        "required": false,
+        "description": ""
+      },
+      "frames": {
+        "type": {
+          "name": "any"
+        },
+        "required": false,
+        "description": ""
+      },
+      "style": {
+        "type": {
+          "name": "object"
+        },
+        "required": false,
+        "description": ""
+      },
+      "children": {
+        "type": {
+          "name": "any"
+        },
+        "required": false,
+        "description": ""
+      },
+      "loadFigure": {
+        "type": {
+          "name": "objectOf",
+          "value": {
+            "name": "any"
+          }
+        },
+        "required": false,
+        "description": ""
+      }
+    }
+  }
+}
