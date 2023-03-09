@@ -10,7 +10,6 @@ import {
   FilterOperation,
   FilterValue,
 } from 'react-chart-editor/lib/components';
-import CustomTransformAccordion from './CustomTransformAccordion'
 import {connectAggregationToTransform} from 'react-chart-editor/lib/lib';
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 
@@ -67,7 +66,7 @@ Aggregations.contextTypes = {
 
 const CustomGraphTransformsPanel = (props, {localize: _}) => {
   return (
-    <CustomTransformAccordion traceFilterCondition={(t) => TRANSFORMABLE_TRACES.includes(t.type)}>
+    <TraceAccordion traceFilterCondition={(t) => t.type==t.type}>
       <TransformAccordion>
         <Radio
           attr="enabled"
@@ -93,7 +92,7 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
 
         <Aggregations />
       </TransformAccordion>
-    </CustomTransformAccordion>
+    </TraceAccordion>
   );
 };
 
