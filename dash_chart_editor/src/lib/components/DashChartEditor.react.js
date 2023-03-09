@@ -1,8 +1,9 @@
 import React, {Component} from 'react';
 import PropTypes from 'prop-types';
-import plotly from 'plotly.js/dist/plotly';
+//import plotly from 'plotly.js/dist/plotly';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
+import ChartEditor from "./ChartEditor.react"
 
 const config = {editable: true};
 
@@ -59,6 +60,7 @@ class DashChartEditor extends Component {
 
 
     return (
+
       <div className="ploty-chart-editor" style={style} id={id}>
         <PlotlyEditor
           ref={this.gd}
@@ -68,13 +70,14 @@ class DashChartEditor extends Component {
           layout={this.state.layout}
           config={config}
           frames={this.state.frames}
-          plotly={plotly}
+          plotly={window.Plotly}
           onUpdate={(data, layout, frames) => this.updateOptions({data, layout, frames})}
           onRender={(data, layout, frames) => this.updateOptions({data, layout, frames})}
           useResizeHandler
           debug
           advancedTraceTypeSelector
         >
+            <ChartEditor />
         </PlotlyEditor>
       </div>
     );

@@ -9,6 +9,7 @@ import dash as _dash
 # noinspection PyUnresolvedReferences
 from ._imports_ import *
 from ._imports_ import __all__
+from .utils import *
 
 if not hasattr(_dash, '__plotly_dash') and not hasattr(_dash, 'development'):
     print('Dash was not successfully imported. '
