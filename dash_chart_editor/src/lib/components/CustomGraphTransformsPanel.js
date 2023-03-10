@@ -29,7 +29,7 @@ export class Aggregations extends Component {
     return (
       <PlotlySection name={_('Aggregations')} attr="aggregations">
         {aggregations
-          .filter((aggr) => aggr.target && aggr.target.match(/transforms\[\d*\]\./gi) === null)
+          .filter((aggr) => aggr.target)
           .map(({target}, i) => (
             <AggregationSection show key={i} aggregationIndex={i}>
               <Dropdown
@@ -47,7 +47,7 @@ export class Aggregations extends Component {
                   {label: _('Max'), value: 'max'},
                   {label: _('First'), value: 'first'},
                   {label: _('Last'), value: 'last'},
-                  {label: _('Change'), value: 'change'},
+                  //{label: _('Change'), value: 'change'},
                   {label: _('Range'), value: 'range'},
                 ]}
                 clearable={false}
@@ -76,8 +76,9 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
             {label: _('Disabled'), value: false},
           ]}
         />
-
+        {(t) => (t.type !== 'aggregate') &&
         <DataSelector label={_('By')} attr="groups" />
+        }
 
         <DataSelector label={_('Target')} attr="target" />
         <FilterOperation label={_('Operator')} attr="operation" />

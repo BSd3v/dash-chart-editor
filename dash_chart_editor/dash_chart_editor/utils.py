@@ -5,10 +5,16 @@ import plotly.express as px
 from inspect import getmembers, isclass, getfullargspec, isfunction
 import traceback
 import re
+import numpy as np
 
 df = px.data.iris()
 
-funcReplace = {'avg': 'mean', 'mode': pd.Series.mode, 'change': 'diff'}
+
+def rms(values):
+    return np.sqrt(sum(values**2)/len(values))
+
+funcReplace = {'avg': 'mean', 'mode': lambda x: x.value_counts().index[0],
+               'rms': rms, 'stddev': 'std', 'range': np.ptp}
 
 def camelcaseSnake(name):
     name = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
@@ -18,63 +24,22 @@ def aggregate(t, df, returnstring, ysrc, xsrc):
     print(t)
     aggs = {}
     aggs_fallback = {}
-    if t['groupssrc']:
-        groupssrc = t['groupssrc']
-        if 'aggregations' in t:
-            xfunc_orig = t["aggregations"][0]["func"]
-            xfunc = xfunc_orig
-            if xfunc_orig in funcReplace:
-                xfunc = funcReplace[xfunc_orig]
-            if groupssrc != xsrc or xfunc_orig != 'first':
-                aggs[xsrc] = xfunc
-                aggs_fallback[xsrc] = xfunc_orig
-            if len(t["aggregations"]) > 1:
-                yfunc_orig = t["aggregations"][1]["func"]
-                yfunc = yfunc_orig
-                if yfunc_orig in funcReplace:
-                    yfunc = funcReplace[yfunc]
-                if groupssrc != ysrc or yfunc_orig != 'first':
-                    aggs[ysrc] = yfunc
-                    aggs_fallback[ysrc] = yfunc_orig
-            else:
-                if groupssrc != ysrc:
-                    aggs[ysrc] = 'first'
-                    aggs_fallback[ysrc] = 'first'
-        else:
-            if groupssrc != xsrc:
-                aggs[xsrc] = 'first'
-            if groupssrc != ysrc:
-                aggs[ysrc] = 'first'
-
+    if 'aggregations' in t:
+        aggs[ysrc] = t['aggregations'][0]['func']
+        aggs_fallback[ysrc] = t['aggregations'][0]['func']
+        if aggs[ysrc] in funcReplace:
+            aggs[ysrc] = funcReplace[aggs[ysrc]]
     else:
-        groupssrc = xsrc
-        if 'aggregations' in t:
-            yfunc_orig = t["aggregations"][0]["func"]
-            yfunc = yfunc_orig
-            if yfunc_orig in funcReplace:
-                yfunc = funcReplace[yfunc]
-            aggs[ysrc] = yfunc
-            aggs_fallback[ysrc] = yfunc_orig
-        else:
-            aggs[ysrc] = 'first'
-            aggs_fallback[ysrc] = 'first'
+        aggs[ysrc] = 'first'
+
     try:
-        returnstring += 'df = df.groupby("' + groupssrc + f'").agg({json.dumps(aggs)}).reset_index()'
+        returnstring += 'df = df.groupby("' + xsrc + f'").agg({json.dumps(aggs)}).reset_index()'
     except:
-        returnstring += 'df = df.groupby("' + json.dumps(groupssrc) + f'").agg({json.dumps(aggs_fallback)}).reset_index()'
+        returnstring += 'df = df.groupby("' + json.dumps(xsrc) + f'").agg({json.dumps(aggs_fallback)}).reset_index()'
     try:
-        df = df.groupby(groupssrc).agg(aggs).reset_index()
-    except Exception as e:
-        print(str(e))
-        if "cannot insert" in str(e) and "already exists" in str(e):
-            try:
-                df1 = df.groupby(ysrc).agg({xsrc: xfunc}).reset_index()
-                df2 = df.groupby(xsrc).agg({ysrc: yfunc}).reset_index()
-                df = pd.concat([df1, df2])
-            except:
-                print(traceback.format_exc())
-        else:
-            print(traceback.format_exc())
+        df = df.groupby(xsrc).agg(aggs).reset_index()
+    except:
+        print(traceback.format_exc())
         pass
     return returnstring + '\n', df
 
@@ -115,43 +80,44 @@ otOps = {
 
 def filter(t, df, returnstring, ysrc, xsrc):
     try:
-        v = ''
-        op = '='
-        if 'value' in t:
-            if t['value']:
-                v = t['value']
-                if 'operation' in t:
-                    op = t['operation']
-        if t['targetsrc']:
-            if isinstance(v, list):
-                v = pd.Series(v).astype(df[t['targetsrc']].dtype)
-            else:
-                if v:
-                    v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
+        if 'enabled' in t:
+            v = ''
+            op = '='
+            if 'value' in t:
+                if t['value']:
+                    v = t['value']
+                    if 'operation' in t:
+                        op = t['operation']
+            if t['targetsrc']:
+                if isinstance(v, list):
+                    v = pd.Series(v).astype(df[t['targetsrc']].dtype)
                 else:
-                    v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
-            if op in inRngOperators or op in exRngOperators:
-                if len(v) > 1:
-                    v1 = v.iat[0]
-                    v2 = v.iat[1]
+                    if v:
+                        v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
+                    else:
+                        v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
+                if op in inRngOperators or op in exRngOperators:
+                    if len(v) > 1:
+                        v1 = v.iat[0]
+                        v2 = v.iat[1]
+                    else:
+                        v1 = v.iat[0]
+                        v2 = v.iat[0]
+                elif op in operators:
+                    v = v.iat[0]
                 else:
-                    v1 = v.iat[0]
-                    v2 = v.iat[0]
-            elif op in operators:
-                v = v.iat[0]
-            else:
-                v = v.tolist()
-            if op in operators:
-                df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
-            elif op in inRngOperators:
-                df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
-            elif op in exRngOperators:
-                df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
-            else:
-                if op == '{}':
-                    df = df.loc[df[t['targetsrc']].isin(v)]
-                elif op == '}{':
-                    df = df.loc[~df[t['targetsrc']].isin(v)]
+                    v = v.tolist()
+                if op in operators:
+                    df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
+                elif op in inRngOperators:
+                    df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
+                elif op in exRngOperators:
+                    df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
+                else:
+                    if op == '{}':
+                        df = df.loc[df[t['targetsrc']].isin(v)]
+                    elif op == '}{':
+                        df = df.loc[~df[t['targetsrc']].isin(v)]
     except:
         df = pd.DataFrame(columns=df.columns)
         print(traceback.format_exc())
