@@ -9,9 +9,10 @@ import {
   PlotlySection,
   FilterOperation,
   FilterValue,
-} from 'react-chart-editor/lib/components';
-import {connectAggregationToTransform} from 'react-chart-editor/lib/lib';
-import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
+} from 'react-chart-editor';
+import {connectAggregationToTransform} from 'react-chart-editor';
+import {TRANSFORMABLE_TRACES} from 'react-chart-editor';
+import CustomTransformAccordion from './CustomTransformAccordion'
 
 const AggregationSection = connectAggregationToTransform(PlotlySection);
 
@@ -67,7 +68,7 @@ Aggregations.contextTypes = {
 const CustomGraphTransformsPanel = (props, {localize: _}) => {
   return (
     <TraceAccordion traceFilterCondition={(t) => t.type==t.type}>
-      <TransformAccordion>
+      <CustomTransformAccordion>
         <Radio
           attr="enabled"
           options={[
@@ -91,7 +92,7 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
         />
 
         <Aggregations />
-      </TransformAccordion>
+      </CustomTransformAccordion>
     </TraceAccordion>
   );
 };

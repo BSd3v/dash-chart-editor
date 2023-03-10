@@ -1,9 +1,8 @@
-import PlotlyFold from 'react-chart-editor/lib/components/containers/PlotlyFold';
-import PlotlyPanel from 'react-chart-editor/lib/components/containers/PlotlyPanel';
 import PropTypes from 'prop-types';
 import React, {Component} from 'react';
-import {connectTransformToTrace} from 'react-chart-editor/lib/lib';
+import {connectTransformToTrace, PlotlyFold, PlotlyPanel} from 'react-chart-editor';
 import {PanelMessage} from 'react-chart-editor/lib/components/containers/PanelEmpty';
+import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 
 const TransformFold = connectTransformToTrace(PlotlyFold);
 
@@ -17,12 +16,33 @@ class CustomTransformAccordion extends Component {
     } = this.context;
     const {children} = this.props;
 
-    const transformTypes = [
+    let tempTransformTypes = [
       {label: _('Filter'), type: 'filter'},
       {label: _('Split'), type: 'groupby'},
       {label: _('Aggregate'), type: 'aggregate'},
       {label: _('Sort'), type: 'sort'},
     ];
+
+    let transformTypes = []
+
+    tempTransformTypes.map((opt) => {
+        if (TRANSFORMABLE_TRACES.includes(container.type)){
+                transformTypes.push(opt)
+        }
+        else if (opt['type'] == 'filter') {
+            transformTypes.push(opt)
+            // clearing non-filter transformers
+            if (container.transforms) {
+                let newTransforms = []
+                container.transforms.map((t) => {
+                    if (t.type === 'filter') {
+                        newTransforms.push(t)
+                    }
+                })
+                container.transforms = newTransforms
+            }
+        }
+    })
 
     const transformBy =
       container.transforms &&
@@ -58,10 +78,26 @@ class CustomTransformAccordion extends Component {
 
     // cannot have 2 Split transforms on one trace:
     // https://github.com/plotly/plotly.js/issues/1742
-    const addActionOptions =
-      container.transforms && container.transforms.some((t) => t.type === 'groupby')
-        ? transformTypes.filter((t) => t.type !== 'groupby')
-        : transformTypes;
+    let addActionOptions = []
+    transformTypes.map((opt) => {
+        if (container.transforms) {
+            if (container.transforms.some((t) => t.type === 'groupby') && (opt.type === 'groupby')) {
+                //
+            }
+            else if (container.transforms.some((t) => t.type === 'aggregate') && (opt.type === 'aggregate')) {
+                //
+            }
+            else {
+                addActionOptions.push(opt)
+            }
+        } else {
+            addActionOptions.push(opt)
+        }
+    })
+
+//      container.transforms && container.transforms.some((t) => t.type === 'groupby')
+//        ? transformTypes.filter((t) => t.type !== 'groupby')
+//        : transformTypes;
 
     const addAction = {
       label: _('Transform'),
@@ -107,6 +143,8 @@ class CustomTransformAccordion extends Component {
                 <strong>{_('Filter')}</strong>{' '}
                 {_(' transforms allow you to filter data out from a trace.')}
               </p>
+              {(TRANSFORMABLE_TRACES.includes(container.type)) &&
+              <div>
               <p>
                 <strong>{_('Split')}</strong>{' '}
                 {_(
@@ -125,6 +163,8 @@ class CustomTransformAccordion extends Component {
                   ' transforms allow you to sort a trace, so as to control marker overlay or line connection order.'
                 )}
               </p>
+              </div>
+              }
             </div>
             <p>{_('Click on the + button above to add a transform.')}</p>
           </PanelMessage>
