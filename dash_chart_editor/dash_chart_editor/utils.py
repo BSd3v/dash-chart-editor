@@ -82,6 +82,10 @@ def groupby(t, df, returnstring, ysrc, xsrc):
     ## pass through as this splits into multiple traces
     return returnstring, df
 
+def sort(t, df, returnstring, ysrc, xsrc):
+    ## pass through as this groups to apply a sort order
+    return returnstring, df
+
 operators = {
     '>=': 'ge',
      '<=':'le',
@@ -154,24 +158,38 @@ def filter(t, df, returnstring, ysrc, xsrc):
         print(t)
     return returnstring, df
 
-transformsFunctions = {'aggregate': aggregate, 'groupby': groupby, 'filter': filter}
+transformsFunctions = {'aggregate': aggregate, 'groupby': groupby, 'filter': filter, 'sort': sort}
 
-figure = {"data": [{"type": "scatter", "mode": "markers", "meta": {"columnNames": {"x": "sepal_length", "y": "sepal_width"}}, "x": [5.1, 4.9, 4.7, 4.6, 5, 5.4, 4.6, 5, 4.4, 4.9, 5.4, 4.8, 4.8, 4.3, 5.8, 5.7, 5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 5, 5, 5.2, 5.2, 4.7, 4.8, 5.4, 5.2, 5.5, 4.9, 5, 5.5, 4.9, 4.4, 5.1, 5, 4.5, 4.4, 5, 5.1, 4.8, 5.1, 4.6, 5.3, 5, 7, 6.4, 6.9, 5.5, 6.5, 5.7, 6.3, 4.9, 6.6, 5.2, 5, 5.9, 6, 6.1, 5.6, 6.7, 5.6, 5.8, 6.2, 5.6, 5.9, 6.1, 6.3, 6.1, 6.4, 6.6, 6.8, 6.7, 6, 5.7, 5.5, 5.5, 5.8, 6, 5.4, 6, 6.7, 6.3, 5.6, 5.5, 5.5, 6.1, 5.8, 5, 5.6, 5.7, 5.7, 6.2, 5.1, 5.7, 6.3, 5.8, 7.1, 6.3, 6.5, 7.6, 4.9, 7.3, 6.7, 7.2, 6.5, 6.4, 6.8, 5.7, 5.8, 6.4, 6.5, 7.7, 7.7, 6, 6.9, 5.6, 7.7, 6.3, 6.7, 7.2, 6.2, 6.1, 6.4, 7.2, 7.4, 7.9, 6.4, 6.3, 6.1, 7.7, 6.3, 6.4, 6, 6.9, 6.7, 6.9, 5.8, 6.8, 6.7, 6.7, 6.3, 6.5, 6.2, 5.9], "xsrc": "sepal_length", "transforms": [{"type": "aggregate", "groupssrc": "sepal_length", "groups": [5.1, 4.9, 4.7, 4.6, 5, 5.4, 4.6, 5, 4.4, 4.9, 5.4, 4.8, 4.8, 4.3, 5.8, 5.7, 5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 5, 5, 5.2, 5.2, 4.7, 4.8, 5.4, 5.2, 5.5, 4.9, 5, 5.5, 4.9, 4.4, 5.1, 5, 4.5, 4.4, 5, 5.1, 4.8, 5.1, 4.6, 5.3, 5, 7, 6.4, 6.9, 5.5, 6.5, 5.7, 6.3, 4.9, 6.6, 5.2, 5, 5.9, 6, 6.1, 5.6, 6.7, 5.6, 5.8, 6.2, 5.6, 5.9, 6.1, 6.3, 6.1, 6.4, 6.6, 6.8, 6.7, 6, 5.7, 5.5, 5.5, 5.8, 6, 5.4, 6, 6.7, 6.3, 5.6, 5.5, 5.5, 6.1, 5.8, 5, 5.6, 5.7, 5.7, 6.2, 5.1, 5.7, 6.3, 5.8, 7.1, 6.3, 6.5, 7.6, 4.9, 7.3, 6.7, 7.2, 6.5, 6.4, 6.8, 5.7, 5.8, 6.4, 6.5, 7.7, 7.7, 6, 6.9, 5.6, 7.7, 6.3, 6.7, 7.2, 6.2, 6.1, 6.4, 7.2, 7.4, 7.9, 6.4, 6.3, 6.1, 7.7, 6.3, 6.4, 6, 6.9, 6.7, 6.9, 5.8, 6.8, 6.7, 6.7, 6.3, 6.5, 6.2, 5.9], "meta": {"columnNames": {"groups": "sepal_length"}}, "aggregations": [{"func": "first", "target": "x", "enabled": True}, {"func": "sum", "target": "y", "enabled": True}]}], "y": [3.5, 3, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1, 3.7, 3.4, 3, 3, 4, 4.4, 3.9, 3.5, 3.8, 3.8, 3.4, 3.7, 3.6, 3.3, 3.4, 3, 3.4, 3.5, 3.4, 3.2, 3.1, 3.4, 4.1, 4.2, 3.1, 3.2, 3.5, 3.1, 3, 3.4, 3.5, 2.3, 3.2, 3.5, 3.8, 3, 3.8, 3.2, 3.7, 3.3, 3.2, 3.2, 3.1, 2.3, 2.8, 2.8, 3.3, 2.4, 2.9, 2.7, 2, 3, 2.2, 2.9, 2.9, 3.1, 3, 2.7, 2.2, 2.5, 3.2, 2.8, 2.5, 2.8, 2.9, 3, 2.8, 3, 2.9, 2.6, 2.4, 2.4, 2.7, 2.7, 3, 3.4, 3.1, 2.3, 3, 2.5, 2.6, 3, 2.6, 2.3, 2.7, 3, 2.9, 2.9, 2.5, 2.8, 3.3, 2.7, 3, 2.9, 3, 3, 2.5, 2.9, 2.5, 3.6, 3.2, 2.7, 3, 2.5, 2.8, 3.2, 3, 3.8, 2.6, 2.2, 3.2, 2.8, 2.8, 2.7, 3.3, 3.2, 2.8, 3, 2.8, 3, 2.8, 3.8, 2.8, 2.8, 2.6, 3, 3.4, 3.1, 3, 3.1, 3.1, 3.1, 2.7, 3.2, 3.3, 3, 2.5, 3, 3.4, 3], "ysrc": "sepal_width"}], "layout": {"xaxis": {"range": [4.090718396138852, 8.109281603861147], "autorange": True, "type": "linear"}, "yaxis": {"range": [0.37124079915878005, 33.22875920084122], "autorange": True, "type": "linear"}, "autosize": True, "mapbox": {"style": "open-street-map"}, "hovermode": "closest", "annotations": [{"text": "new text", "x": 5.899517356599221, "y": 3.0389957939011567}]}, "frames": []}
+figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length",
+                    "transforms": [{"type": "aggregate", "groupssrc": "sepal_length",
+                                    "aggregations": [{"func": "first", "target": "x", "enabled": True},
+                                                     {"func": "sum", "target": "y", "enabled": True}]}], "ysrc": "sepal_width"}],
+          "layout": {"xaxis": {"range": [4.090718396138852, 8.109281603861147], "autorange": True, "type": "linear"},
+                     "yaxis": {"range": [0.37124079915878005, 33.22875920084122], "autorange": True, "type": "linear"},
+                     "autosize": True, "mapbox": {"style": "open-street-map"},
+                     "hovermode": "closest",
+                     "annotations": [{"text": "new text", "x": 5.899517356599221, "y": 3.0389957939011567}]},
+          "frames": []}
 
 
 def parseTransforms(transforms, returnstring, ysrc, xsrc, df=pd.DataFrame()):
     groups = []
+    sorts = []
     for t in transforms:
         if 'enabled' in t:
             if t['enabled']:
                 if t['type'] == 'groupby':
                     groups.append(t)
+                if t['type'] == 'sort':
+                    sorts.append(t)
                 returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
         else:
             if t['type'] == 'groupby' and t['groupssrc']:
                 groups.append(t)
+            if t['type'] == 'sort':
+                sorts.append(t)
             returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
-    return returnstring, df, groups
+    return returnstring, df, groups, sorts
 
 def parseChartKeys_string(chart):
     realChart = None
@@ -217,7 +235,7 @@ def chartToPython_string(figure):
     returnstring = "fig = go.Figure()\n"
     for chart in data:
         if 'transforms' in chart:
-            returnstring, df, groups = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'])
+            returnstring, df, groups, sorts = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'])
         returnstring += parseChartKeys_string(chart)
         returnstring += "fig.add_trace(data)\n"
     returnstring += "fig.update_layout(template='none')\n"
@@ -312,7 +330,25 @@ def chartToPython(figure, df):
     for chart in data:
         dff = df.copy()
         if 'transforms' in chart:
-            returnstring, dff, groups = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'], dff)
+            returnstring, dff, groups, sorts = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'], dff)
+
+            if sorts:
+                newSort = []
+                order = []
+                for sort in sorts:
+                    if 'targetsrc' in sort:
+                        newSort.append(sort['targetsrc'])
+                    else:
+                        newSort.append(chart['xsrc'])
+                    if 'order' in sort:
+                        if sort['order'] == 'descending':
+                            order.append(False)
+                        else:
+                            order.append(True)
+                    else:
+                        order.append(True)
+                if newSort:
+                    dff = dff.sort_values(by=newSort, ascending=order)
 
             if groups:
                 for grp in groups:

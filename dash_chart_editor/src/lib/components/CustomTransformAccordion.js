@@ -36,10 +36,15 @@ class CustomTransformAccordion extends Component {
                 let newTransforms = []
                 container.transforms.map((t) => {
                     if (t.type === 'filter') {
+                        console.log(t)
                         newTransforms.push(t)
                     }
                 })
-                container.transforms = newTransforms
+                if (newTransforms.length == 0) {
+                    container.transforms = null
+                } else {
+                    container.transforms = newTransforms
+                }
             }
         }
     })
@@ -85,6 +90,9 @@ class CustomTransformAccordion extends Component {
                 //
             }
             else if (container.transforms.some((t) => t.type === 'aggregate') && (opt.type === 'aggregate')) {
+                //
+            }
+            else if (container.transforms.some((t) => t.type === 'sort') && (opt.type === 'sort')) {
                 //
             }
             else {

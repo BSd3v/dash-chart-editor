@@ -36,20 +36,31 @@ app.layout = html.Div([
 )
 def outputData(data, layout, frames, filter):
     if data or layout or frames or filter:
-        figure = json.dumps({'data': data, 'layout': layout, 'frames': frames})\
-            .replace('true','True')\
-            .replace('false', 'False')\
-            .replace('null', 'None')
+        # cleaning data output for unnecessary columns
+        for d in data:
+            for k in ['x', 'y', 'z', 'values', 'meta']:
+                if k in d.keys():
+                    del d[k]
+            if 'transforms' in d:
+                for t in d['transforms']:
+                    for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target']:
+                        if k in t.keys():
+                            del t[k]
+        print(data)
         dff = df.copy()
         # if filter:
         #     dff = dff[dff['sepal_length'].between(filter[0], filter[1])]
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
             figure = dcc.Graph(figure=dce.chartToPython({'data': data, 'layout': layout, 'frames': frames}, dff))
+            return figure
         except Exception as e:
             print(traceback.format_exc())
             pass
-        return figure
+        return json.dumps({'data': data, 'layout': layout, 'frames': frames})\
+            .replace('true','True')\
+            .replace('false', 'False')\
+            .replace('null', 'None')
 
 
 if __name__ == '__main__':
