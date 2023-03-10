@@ -12,7 +12,7 @@ class CustomTransformAccordion extends Component {
       fullContainer: {transforms = []},
       localize: _,
       container,
-      dataSourceOptions,
+      dataSourceOptions
     } = this.context;
     const {children} = this.props;
 
@@ -31,21 +31,6 @@ class CustomTransformAccordion extends Component {
         }
         else if (opt['type'] == 'filter') {
             transformTypes.push(opt)
-            // clearing non-filter transformers
-            if (container.transforms) {
-                let newTransforms = []
-                container.transforms.map((t) => {
-                    if (t.type === 'filter') {
-                        console.log(t)
-                        newTransforms.push(t)
-                    }
-                })
-                if (newTransforms.length == 0) {
-                    container.transforms = null
-                } else {
-                    container.transforms = newTransforms
-                }
-            }
         }
     })
 

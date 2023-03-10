@@ -38,12 +38,12 @@ def outputData(data, layout, frames, filter):
     if data or layout or frames or filter:
         # cleaning data output for unnecessary columns
         for d in data:
-            for k in ['x', 'y', 'z', 'values', 'meta']:
+            for k in ['x', 'y', 'z', 'values', 'meta', 'labels']:
                 if k in d.keys():
                     del d[k]
             if 'transforms' in d:
                 for t in d['transforms']:
-                    for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target']:
+                    for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target', 'labels']:
                         if k in t.keys():
                             del t[k]
         print(data)

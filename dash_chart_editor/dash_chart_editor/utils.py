@@ -329,6 +329,11 @@ def chartToPython(figure, df):
     returnstring = ''
     for chart in data:
         dff = df.copy()
+        if not 'yaxis' in chart:
+            chart['yaxis'] = 'y'
+        if not 'xaxis' in chart:
+            chart['xaxis'] = 'x'
+
         if 'transforms' in chart:
             returnstring, dff, groups, sorts = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'], dff)
 
@@ -358,16 +363,16 @@ def chartToPython(figure, df):
                         if x['value']:
                             if 'name' not in x['value']:
                                 x['value']['name'] = x['target']
-                            data = parseChartKeys_fig(chart, dff2, x['value'])
+                            newchart = parseChartKeys_fig(chart, dff2, x['value'])
                         else:
-                            data = parseChartKeys_fig(chart, dff2, {'name': x['target']})
-                        fig.add_trace(data)
+                            newchart = parseChartKeys_fig(chart, dff2, {'name': x['target']})
+                        fig.add_trace(newchart)
             else:
-                data = parseChartKeys_fig(chart, dff)
-                fig.add_trace(data)
+                newchart = parseChartKeys_fig(chart, dff)
+                fig.add_trace(newchart)
         else:
-            data = parseChartKeys_fig(chart, dff)
-            fig.add_trace(data)
+            newchart = parseChartKeys_fig(chart, dff)
+            fig.add_trace(newchart)
     fig.update_layout(template='none')
     fig = dropInvalidLayout(figure['layout'], fig)
     return fig

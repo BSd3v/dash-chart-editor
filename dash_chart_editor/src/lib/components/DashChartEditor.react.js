@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
 import ChartEditor from "./ChartEditor.react"
+import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 
 const config = {editable: true};
 
@@ -26,6 +27,25 @@ class DashChartEditor extends Component {
   }
 
   updateOptions = ({data, layout, frames}) => {
+    data.map((d) => {
+        if ('transforms' in d) {
+            if (!TRANSFORMABLE_TRACES.includes(d.type)) {
+                let newTransforms = []
+                d['transforms'].map((t) =>
+                    {
+                        if (t['type'] == 'filter') {
+                            newTransforms.push(t)
+                        }
+                    }
+                )
+                if (newTransforms) {
+                    d['transforms'] = newTransforms
+                } else {
+                    delete d['transforms'];
+                }
+            }
+        }
+    })
     this.props.setProps({
         data: JSON.parse(JSON.stringify(data)),
         layout: JSON.parse(JSON.stringify(layout)),
