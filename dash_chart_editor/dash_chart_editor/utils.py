@@ -78,6 +78,8 @@ otOps = {
     '{}': 'isin'
 }
 
+typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'}}
+
 def filter(t, df, returnstring, ysrc, xsrc):
     try:
         if 'enabled' in t:
@@ -299,9 +301,18 @@ def chartToPython(figure, df):
             chart['yaxis'] = 'y'
         if not 'xaxis' in chart:
             chart['xaxis'] = 'x'
+        if 'ysrc' in chart:
+            ysrc = chart['ysrc']
+        if 'xsrc' in chart:
+            xsrc = chart['xsrc']
+        if chart['type'] in typeDataSource:
+            if typeDataSource[chart['type']]['xsrc'] in chart:
+                xsrc = chart[typeDataSource[chart['type']]['xsrc']]
+            if typeDataSource[chart['type']]['ysrc'] in chart:
+                ysrc = chart[typeDataSource[chart['type']]['ysrc']]
 
         if 'transforms' in chart:
-            returnstring, dff, groups, sorts = parseTransforms(chart['transforms'], returnstring, chart['ysrc'], chart['xsrc'], dff)
+            returnstring, dff, groups, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff)
 
             if sorts:
                 newSort = []
@@ -310,7 +321,7 @@ def chartToPython(figure, df):
                     if 'targetsrc' in sort:
                         newSort.append(sort['targetsrc'])
                     else:
-                        newSort.append(chart['xsrc'])
+                        newSort.append(xsrc)
                     if 'order' in sort:
                         if sort['order'] == 'descending':
                             order.append(False)
