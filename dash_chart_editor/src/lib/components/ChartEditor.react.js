@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import {PanelMenuWrapper} from 'react-chart-editor/lib/components';
 import {
   GraphCreatePanel,
-  GraphTransformsPanel,
   GraphSubplotsPanel,
   StyleLayoutPanel,
   StyleAxesPanel,

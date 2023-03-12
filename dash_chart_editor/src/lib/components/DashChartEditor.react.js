@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import PropTypes from 'prop-types';
-//import plotly from 'plotly.js/dist/plotly';
+// import plotly from 'plotly.js/dist/plotly';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
 import ChartEditor from "./ChartEditor.react"
@@ -27,44 +27,39 @@ class DashChartEditor extends Component {
   }
 
   updateOptions = ({data, layout, frames}) => {
-    data.map((d) => {
-        if ('transforms' in d) {
-            if (!TRANSFORMABLE_TRACES.includes(d.type)) {
-                let newTransforms = []
-                d['transforms'].map((t) =>
-                    {
-                        if (t['type'] == 'filter') {
-                            newTransforms.push(t)
+        data.map((d) => {
+            if ('transforms' in d) {
+                if (!TRANSFORMABLE_TRACES.includes(d.type)) {
+                    const newTransforms = []
+                    d.transforms.map((t) =>
+                        {
+                            if (t.type === 'filter') {
+                                newTransforms.push(t)
+                            }
                         }
+                    )
+                    if (newTransforms) {
+                        d.transforms = newTransforms
+                    } else {
+                        delete d.transforms;
                     }
-                )
-                if (newTransforms) {
-                    d['transforms'] = newTransforms
-                } else {
-                    delete d['transforms'];
                 }
             }
-        }
-    })
-    this.props.setProps({
-        data: JSON.parse(JSON.stringify(data)),
-        layout: JSON.parse(JSON.stringify(layout)),
-        frames: JSON.parse(JSON.stringify(frames)),
-    })
-    this.setState({data, layout, frames})
+        })
+        this.props.setProps({
+            data: JSON.parse(JSON.stringify(data)),
+            layout: JSON.parse(JSON.stringify(layout)),
+            frames: JSON.parse(JSON.stringify(frames)),
+        })
+        this.setState({data, layout, frames})
   }
 
   render() {
     const {
         id,
-        data,
-        layout,
-        frames,
-        targetid,
         style,
         setProps,
         dataSources,
-        children,
         loadFigure
     } = this.props;
 
@@ -114,5 +109,6 @@ DashChartEditor.propTypes = {
     frames: PropTypes.any,
     style: PropTypes.object,
     children: PropTypes.any,
-    loadFigure: PropTypes.objectOf(PropTypes.any)
+    loadFigure: PropTypes.objectOf(PropTypes.any),
+    setProps: PropTypes.func
 }

@@ -16,20 +16,20 @@ class CustomTransformAccordion extends Component {
     } = this.context;
     const {children} = this.props;
 
-    let tempTransformTypes = [
+    const tempTransformTypes = [
       {label: _('Filter'), type: 'filter'},
       {label: _('Split'), type: 'groupby'},
       {label: _('Aggregate'), type: 'aggregate'},
       {label: _('Sort'), type: 'sort'},
     ];
 
-    let transformTypes = []
+    const transformTypes = []
 
     tempTransformTypes.map((opt) => {
         if (TRANSFORMABLE_TRACES.includes(container.type)){
                 transformTypes.push(opt)
         }
-        else if (opt['type'] == 'filter') {
+        else if (opt.type === 'filter') {
             transformTypes.push(opt)
         }
     })
@@ -41,7 +41,7 @@ class CustomTransformAccordion extends Component {
         if (tr.groupssrc) {
           const groupssrc =
             dataSourceOptions && dataSourceOptions.find((d) => d.value === tr.groupssrc);
-          foldNameSuffix = `: ${groupssrc && groupssrc.label ? groupssrc.label : tr.groupssrc}`;
+            foldNameSuffix = `: ${groupssrc && groupssrc.label ? groupssrc.label : tr.groupssrc}`;
         } else if (tr.targetsrc) {
           const targetsrc =
             dataSourceOptions && dataSourceOptions.find((d) => d.value === tr.targetsrc);
@@ -51,6 +51,9 @@ class CustomTransformAccordion extends Component {
       });
 
     const filteredTransforms = transforms.filter(({type}) => Boolean(type));
+    let filteredChildren = []
+    children.filter((c) => c.props.label !== 'By')
+    .map(c => filteredChildren.push(c))
     const content =
       filteredTransforms.length &&
       filteredTransforms.map((tr, i) => (
@@ -60,15 +63,16 @@ class CustomTransformAccordion extends Component {
           name={`${transformTypes.filter(({type}) => type === tr.type)[0].label}${
             transformBy && transformBy[i]
           }`}
+          className={tr.type}
           canDelete={true}
         >
-          {children}
+          {(tr.type !== 'aggregate') ? (children) : (filteredChildren)}
         </TransformFold>
-      ));
+      ))
 
     // cannot have 2 Split transforms on one trace:
     // https://github.com/plotly/plotly.js/issues/1742
-    let addActionOptions = []
+    const addActionOptions = []
     transformTypes.map((opt) => {
         if (container.transforms) {
             if (container.transforms.some((t) => t.type === 'groupby') && (opt.type === 'groupby')) {

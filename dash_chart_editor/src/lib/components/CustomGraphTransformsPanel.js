@@ -2,16 +2,16 @@ import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import {
   Radio,
-  TransformAccordion,
   TraceAccordion,
   DataSelector,
   Dropdown,
   PlotlySection,
   FilterOperation,
   FilterValue,
+  connectAggregationToTransform
 } from 'react-chart-editor';
-import {connectAggregationToTransform} from 'react-chart-editor';
-import {TRANSFORMABLE_TRACES} from 'react-chart-editor';
+
+
 import CustomTransformAccordion from './CustomTransformAccordion'
 
 const AggregationSection = connectAggregationToTransform(PlotlySection);
@@ -29,7 +29,7 @@ export class Aggregations extends Component {
     return (
       <PlotlySection name={_('Aggregations')} attr="aggregations">
         {aggregations
-          .filter((aggr) => aggr.target)
+          .filter((aggr, i) => aggr.target && i === 0)
           .map(({target}, i) => (
             <AggregationSection show key={i} aggregationIndex={i}>
               <Dropdown
@@ -47,7 +47,7 @@ export class Aggregations extends Component {
                   {label: _('Max'), value: 'max'},
                   {label: _('First'), value: 'first'},
                   {label: _('Last'), value: 'last'},
-                  //{label: _('Change'), value: 'change'},
+                  // {label: _('Change'), value: 'change'},
                   {label: _('Range'), value: 'range'},
                 ]}
                 clearable={false}
@@ -66,8 +66,9 @@ Aggregations.contextTypes = {
 };
 
 const CustomGraphTransformsPanel = (props, {localize: _}) => {
+
   return (
-    <TraceAccordion traceFilterCondition={(t) => t.type==t.type}>
+    <TraceAccordion traceFilterCondition={(t) => t.type}>
       <CustomTransformAccordion>
         <Radio
           attr="enabled"
@@ -76,9 +77,8 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
             {label: _('Disabled'), value: false},
           ]}
         />
-        {(t) => (t.type !== 'aggregate') &&
+
         <DataSelector label={_('By')} attr="groups" />
-        }
 
         <DataSelector label={_('Target')} attr="target" />
         <FilterOperation label={_('Operator')} attr="operation" />

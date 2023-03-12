@@ -1,10 +1,8 @@
 const path = require('path');
-const TerserPlugin = require('terser-webpack-plugin');
-const webpack = require('webpack');
-const WebpackDashDynamicImport = require('@plotly/webpack-dash-dynamic-import');
 const packagejson = require('./package.json');
 
 const dashLibraryName = packagejson.name.replace(/-/g, '_');
+const WebpackDashDynamicImport = require('@plotly/webpack-dash-dynamic-import');
 
 module.exports = (env, argv) => {
 
@@ -60,41 +58,22 @@ module.exports = (env, argv) => {
             rules: [
                 {
                     test: /\.jsx?$/,
-                    exclude: /node_modules/,
                     use: {
-                        loader: 'babel-loader',
+                      loader: 'babel-loader',
+                      options: {
+                        presets: ['@babel/preset-env']
+                      }
                     },
                 },
                 {
                     test: /\.css$/,
-                    use: [
-                        {
-                            loader: 'style-loader',
-                            options: {
-                                insertAt: 'top'
-                            }
-                        },
-                        {
-                            loader: 'css-loader',
-                        },
-                    ],
+                    use: ['style-loader', 'css-loader'],
                 },
             ],
         },
         optimization: {
-            minimizer: [
-                new TerserPlugin({
-                    sourceMap: true,
-                    parallel: true,
-                    cache: './.build_cache/terser',
-                    terserOptions: {
-                        warnings: false,
-                        ie8: false
-                    }
-                })
-            ],
             splitChunks: {
-                name: true,
+                name: '[name].js',
                 cacheGroups: {
                     async: {
                         chunks: 'async',
@@ -102,22 +81,12 @@ module.exports = (env, argv) => {
                         name(module, chunks, cacheGroupKey) {
                             return `${cacheGroupKey}-${chunks[0].name}`;
                         }
-                    },
-                    shared: {
-                        chunks: 'all',
-                        minSize: 0,
-                        minChunks: 2,
-                        name: 'dash_chart_editor-shared'
                     }
                 }
             }
         },
         plugins: [
-            new WebpackDashDynamicImport(),
-            new webpack.SourceMapDevToolPlugin({
-                filename: '[file].map',
-                exclude: ['async-plotlyjs']
-            })
+            new WebpackDashDynamicImport()
         ]
     }
 };

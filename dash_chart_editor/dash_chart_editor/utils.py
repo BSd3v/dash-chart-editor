@@ -82,44 +82,46 @@ typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'}}
 
 def filter(t, df, returnstring, ysrc, xsrc):
     try:
-        if 'enabled' in t:
-            v = ''
-            op = '='
-            if 'value' in t:
-                if t['value']:
-                    v = t['value']
-                    if 'operation' in t:
-                        op = t['operation']
-            if t['targetsrc']:
-                if isinstance(v, list):
-                    v = pd.Series(v).astype(df[t['targetsrc']].dtype)
+        v = ''
+        op = '='
+        if 'value' in t:
+            if t['value']:
+                v = t['value']
+                if 'operation' in t:
+                    op = t['operation']
+        else:
+            if 'operation' in t:
+                op = t['operation']
+        if t['targetsrc']:
+            if isinstance(v, list):
+                v = pd.Series(v).astype(df[t['targetsrc']].dtype)
+            else:
+                if v:
+                    v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
                 else:
-                    if v:
-                        v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
-                    else:
-                        v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
-                if op in inRngOperators or op in exRngOperators:
-                    if len(v) > 1:
-                        v1 = v.iat[0]
-                        v2 = v.iat[1]
-                    else:
-                        v1 = v.iat[0]
-                        v2 = v.iat[0]
-                elif op in operators:
-                    v = v.iat[0]
+                    v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
+            if op in inRngOperators or op in exRngOperators:
+                if len(v) > 1:
+                    v1 = v.iat[0]
+                    v2 = v.iat[1]
                 else:
-                    v = v.tolist()
-                if op in operators:
-                    df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
-                elif op in inRngOperators:
-                    df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
-                elif op in exRngOperators:
-                    df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
-                else:
-                    if op == '{}':
-                        df = df.loc[df[t['targetsrc']].isin(v)]
-                    elif op == '}{':
-                        df = df.loc[~df[t['targetsrc']].isin(v)]
+                    v1 = v.iat[0]
+                    v2 = v.iat[0]
+            elif op in operators:
+                v = v.iat[0]
+            else:
+                v = v.tolist()
+            if op in operators:
+                df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
+            elif op in inRngOperators:
+                df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
+            elif op in exRngOperators:
+                df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
+            else:
+                if op == '{}':
+                    df = df.loc[df[t['targetsrc']].isin(v)]
+                elif op == '}{':
+                    df = df.loc[~df[t['targetsrc']].isin(v)]
     except:
         df = pd.DataFrame(columns=df.columns)
         print(traceback.format_exc())
@@ -141,23 +143,19 @@ figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length"
 
 
 def parseTransforms(transforms, returnstring, ysrc, xsrc, df=pd.DataFrame()):
-    groups = []
     sorts = []
     for t in transforms:
         if 'enabled' in t:
             if t['enabled']:
-                if t['type'] == 'groupby':
-                    groups.append(t)
                 if t['type'] == 'sort':
                     sorts.append(t)
                 returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
         else:
-            if t['type'] == 'groupby' and t['groupssrc']:
-                groups.append(t)
             if t['type'] == 'sort':
                 sorts.append(t)
             returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
-    return returnstring, df, groups, sorts
+        df.reset_index()
+    return returnstring, df, sorts
 
 def parseChartKeys_string(chart):
     realChart = None
@@ -312,31 +310,42 @@ def chartToPython(figure, df):
                 ysrc = chart[typeDataSource[chart['type']]['ysrc']]
 
         if 'transforms' in chart:
-            returnstring, dff, groups, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff)
-
-            if sorts:
-                newSort = []
-                order = []
-                for sort in sorts:
-                    if 'targetsrc' in sort:
-                        newSort.append(sort['targetsrc'])
+            groups = []
+            for t in chart['transforms']:
+                if 'groupssrc' in t:
+                    if 'enabled' in t:
+                        if t['enabled']:
+                            if t['type'] == 'groupby':
+                                groups.append(t)
                     else:
-                        newSort.append(xsrc)
-                    if 'order' in sort:
-                        if sort['order'] == 'descending':
-                            order.append(False)
-                        else:
-                            order.append(True)
-                    else:
-                        order.append(True)
-                if newSort:
-                    dff = dff.sort_values(by=newSort, ascending=order)
-
+                        if t['type'] == 'groupby' and t['groupssrc']:
+                            groups.append(t)
             if groups:
                 for grp in groups:
                     for x in grp['styles']:
                         dff2 = dff.copy()
                         dff2 = dff2[dff2[grp['groupssrc']] == x['target']]
+                        returnstring, dff2, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff2)
+
+                        dff2.reset_index()
+                        if sorts:
+                            newSort = []
+                            order = []
+                            for sort in sorts:
+                                if 'targetsrc' in sort:
+                                    newSort.append(sort['targetsrc'])
+                                else:
+                                    newSort.append(xsrc)
+                                if 'order' in sort:
+                                    if sort['order'] == 'descending':
+                                        order.append(False)
+                                    else:
+                                        order.append(True)
+                                else:
+                                    order.append(True)
+                            if newSort:
+                                dff2 = dff2.sort_values(by=newSort, ascending=order)
+
                         if x['value']:
                             if 'name' not in x['value']:
                                 x['value']['name'] = x['target']
@@ -345,8 +354,30 @@ def chartToPython(figure, df):
                             newchart = parseChartKeys_fig(chart, dff2, {'name': x['target']})
                         fig.add_trace(newchart)
             else:
+                returnstring, dff, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff)
+
+                if sorts:
+                    newSort = []
+                    order = []
+                    for sort in sorts:
+                        if 'targetsrc' in sort:
+                            newSort.append(sort['targetsrc'])
+                        else:
+                            newSort.append(xsrc)
+                        if 'order' in sort:
+                            if sort['order'] == 'descending':
+                                order.append(False)
+                            else:
+                                order.append(True)
+                        else:
+                            order.append(True)
+                    if newSort:
+                        dff = dff.sort_values(by=newSort, ascending=order)
+
                 newchart = parseChartKeys_fig(chart, dff)
                 fig.add_trace(newchart)
+
+
         else:
             newchart = parseChartKeys_fig(chart, dff)
             fig.add_trace(newchart)
