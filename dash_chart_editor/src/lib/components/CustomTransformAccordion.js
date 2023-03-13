@@ -51,7 +51,7 @@ class CustomTransformAccordion extends Component {
       });
 
     const filteredTransforms = transforms.filter(({type}) => Boolean(type));
-    let filteredChildren = []
+    const filteredChildren = []
     children.filter((c) => c.props.label !== 'By')
     .map(c => filteredChildren.push(c))
     const content =

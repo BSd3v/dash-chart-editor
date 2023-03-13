@@ -21,7 +21,11 @@ app.layout = html.Div([
         id='test',
         dataSources=df.to_dict('list'),
         style={'width': '100vw', 'height': '50vh'},
-        loadFigure=figure
+        loadFigure=figure,
+        logoSrc="https://busybee.alliancebee.com/static/logo.png",
+        structureOptions={'transforms': True},
+        annotateOptions={'text': True},
+        config={'editable': True, "edits": {"annotationPosition": False}}
     ),
     dcc.RangeSlider(id='filter', min=df['sepal_length'].min(), max=df['sepal_length'].max(), step=0.1),
     html.Div(id='output')

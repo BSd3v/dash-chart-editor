@@ -1,4 +1,372 @@
 {
+  "src/lib/components/ChartEditor.react.js": {
+    "description": "",
+    "displayName": "ChartEditor",
+    "methods": [
+      {
+        "name": "hasTransforms",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasAxes",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasMenus",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasSliders",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasColorbars",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasLegend",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "hasMaps",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
+        "name": "buildPanels",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "obj",
+            "type": null
+          },
+          {
+            "name": "key",
+            "type": null
+          },
+          {
+            "name": "elem",
+            "type": null
+          }
+        ],
+        "returns": null
+      },
+      {
+        "name": "buildStructure",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "_",
+            "type": null
+          }
+        ],
+        "returns": null
+      },
+      {
+        "name": "buildStyle",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "_",
+            "type": null
+          }
+        ],
+        "returns": null
+      },
+      {
+        "name": "buildAnnotations",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "_",
+            "type": null
+          }
+        ],
+        "returns": null
+      },
+      {
+        "name": "buildControls",
+        "docblock": null,
+        "modifiers": [],
+        "params": [
+          {
+            "name": "_",
+            "type": null
+          }
+        ],
+        "returns": null
+      }
+    ],
+    "props": {
+      "children": {
+        "type": {
+          "name": "node"
+        },
+        "required": false,
+        "description": ""
+      },
+      "logoSrc": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": ""
+      },
+      "logoStyle": {
+        "type": {
+          "name": "object"
+        },
+        "required": false,
+        "description": ""
+      },
+      "menuPanelOrder": {
+        "type": {
+          "name": "array"
+        },
+        "required": false,
+        "description": ""
+      },
+      "structureOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "traces": {
+                  "name": "bool",
+                  "required": false
+                },
+                "subplots": {
+                  "name": "bool",
+                  "required": false
+                },
+                "transforms": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": ""
+      },
+      "styleOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "general": {
+                  "name": "bool",
+                  "required": false
+                },
+                "traces": {
+                  "name": "bool",
+                  "required": false
+                },
+                "axes": {
+                  "name": "bool",
+                  "required": false
+                },
+                "maps": {
+                  "name": "bool",
+                  "required": false
+                },
+                "legend": {
+                  "name": "bool",
+                  "required": false
+                },
+                "colorBars": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": ""
+      },
+      "annotateOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "text": {
+                  "name": "bool",
+                  "required": false
+                },
+                "shapes": {
+                  "name": "bool",
+                  "required": false
+                },
+                "images": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": ""
+      },
+      "controlOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "sliders": {
+                  "name": "bool",
+                  "required": false
+                },
+                "menus": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": ""
+      }
+    },
+    "context": {
+      "localize": {
+        "type": {
+          "name": "func"
+        },
+        "required": false
+      },
+      "fullData": {
+        "type": {
+          "name": "array"
+        },
+        "required": false
+      },
+      "fullLayout": {
+        "type": {
+          "name": "object"
+        },
+        "required": false
+      },
+      "layout": {
+        "type": {
+          "name": "object"
+        },
+        "required": false
+      }
+    }
+  },
+  "src/lib/components/CustomLogo.js": {
+    "description": "",
+    "displayName": "CustomLogo",
+    "methods": [],
+    "props": {
+      "src": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": ""
+      },
+      "style": {
+        "type": {
+          "name": "object"
+        },
+        "required": false,
+        "description": "",
+        "defaultValue": {
+          "value": "{'width':'100%', 'height': '50px', 'margin': '0px'}",
+          "computed": false
+        }
+      }
+    }
+  },
+  "src/lib/components/CustomTransformAccordion.js": {
+    "description": "",
+    "displayName": "CustomTransformAccordion",
+    "methods": [],
+    "props": {
+      "children": {
+        "type": {
+          "name": "node"
+        },
+        "required": false,
+        "description": ""
+      }
+    },
+    "context": {
+      "fullContainer": {
+        "type": {
+          "name": "object"
+        },
+        "required": false
+      },
+      "localize": {
+        "type": {
+          "name": "func"
+        },
+        "required": false
+      },
+      "container": {
+        "type": {
+          "name": "object"
+        },
+        "required": false
+      },
+      "dataSourceOptions": {
+        "type": {
+          "name": "array"
+        },
+        "required": false
+      }
+    }
+  },
   "src/lib/components/DashChartEditor.react.js": {
     "description": "",
     "displayName": "DashChartEditor",
@@ -34,14 +402,7 @@
           "name": "string"
         },
         "required": false,
-        "description": ""
-      },
-      "data": {
-        "type": {
-          "name": "any"
-        },
-        "required": false,
-        "description": ""
+        "description": "Dash prop to be registered for use with callbacks"
       },
       "dataSources": {
         "type": {
@@ -51,35 +412,46 @@
           }
         },
         "required": false,
-        "description": ""
+        "description": "Input dataSources for driving the chart editors selections"
+      },
+      "data": {
+        "type": {
+          "name": "any"
+        },
+        "required": false,
+        "description": "Output data of the chart editor"
       },
       "layout": {
         "type": {
           "name": "any"
         },
         "required": false,
-        "description": ""
+        "description": "Output layout of the chart editor"
       },
       "frames": {
         "type": {
           "name": "any"
         },
         "required": false,
-        "description": ""
+        "description": "Output frames of the chart editor"
       },
       "style": {
         "type": {
           "name": "object"
         },
         "required": false,
-        "description": ""
+        "description": "style of the whole editing element, including charting area"
       },
-      "children": {
+      "config": {
         "type": {
-          "name": "any"
+          "name": "object"
         },
         "required": false,
-        "description": ""
+        "description": "Plotly config options, listed here: https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js",
+        "defaultValue": {
+          "value": "{editable: true}",
+          "computed": false
+        }
       },
       "loadFigure": {
         "type": {
@@ -89,7 +461,168 @@
           }
         },
         "required": false,
-        "description": ""
+        "description": "{data, layout, frames} given to the chart, used to populate selections and chart when loading"
+      },
+      "logoSrc": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "Logo that will be displayed in the chart editor"
+      },
+      "logoStyle": {
+        "type": {
+          "name": "object"
+        },
+        "required": false,
+        "description": "Style object of the Logo"
+      },
+      "structureOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "traces": {
+                  "name": "bool",
+                  "required": false
+                },
+                "subplots": {
+                  "name": "bool",
+                  "required": false
+                },
+                "transforms": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": "Options that drive the available options under the \"Structure\" tree",
+        "defaultValue": {
+          "value": "true",
+          "computed": false
+        }
+      },
+      "styleOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "general": {
+                  "name": "bool",
+                  "required": false
+                },
+                "traces": {
+                  "name": "bool",
+                  "required": false
+                },
+                "axes": {
+                  "name": "bool",
+                  "required": false
+                },
+                "maps": {
+                  "name": "bool",
+                  "required": false
+                },
+                "legend": {
+                  "name": "bool",
+                  "required": false
+                },
+                "colorBars": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": "Options that drive the available options under the \"Style\" tree",
+        "defaultValue": {
+          "value": "true",
+          "computed": false
+        }
+      },
+      "annotateOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "text": {
+                  "name": "bool",
+                  "required": false
+                },
+                "shapes": {
+                  "name": "bool",
+                  "required": false
+                },
+                "images": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": "Options that drive the available options under the \"Annotate\" tree",
+        "defaultValue": {
+          "value": "true",
+          "computed": false
+        }
+      },
+      "controlOptions": {
+        "type": {
+          "name": "union",
+          "value": [
+            {
+              "name": "bool"
+            },
+            {
+              "name": "shape",
+              "value": {
+                "sliders": {
+                  "name": "bool",
+                  "required": false
+                },
+                "menus": {
+                  "name": "bool",
+                  "required": false
+                }
+              }
+            }
+          ]
+        },
+        "required": false,
+        "description": "Options that drive the available options under the \"Control\" tree",
+        "defaultValue": {
+          "value": "true",
+          "computed": false
+        }
+      },
+      "setProps": {
+        "type": {
+          "name": "func"
+        },
+        "required": false,
+        "description": "Dash-assigned callback that gets fired when the input changes"
       }
     }
   }

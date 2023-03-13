@@ -18,7 +18,7 @@ import {
 } from 'react-chart-editor/lib/default_panels';
 import CustomGraphTransformsPanel from './CustomGraphTransformsPanel'
 import {traceHasColorbar} from 'react-chart-editor/lib/default_panels/StyleColorbarsPanel';
-import Logo from 'react-chart-editor/lib/components/widgets/Logo';
+import CustomLogo from './CustomLogo';
 import {TRANSFORMABLE_TRACES, TRACE_TO_AXIS} from 'react-chart-editor/lib/lib/constants';
 
 class ChartEditor extends Component {
@@ -76,27 +76,116 @@ class ChartEditor extends Component {
     );
   }
 
+  buildPanels(obj, key, elem) {
+    if (key in obj) {
+        if (obj[key]) {
+            return elem;
+        }
+    }
+    return null;
+  }
+
+  buildStructure(_) {
+    if (this.props.structureOptions) {
+        const returning = []
+        if (this.props.structureOptions === true) {
+            returning.push(<GraphCreatePanel group={_('Structure')} name={_('Traces')} />)
+            returning.push(<GraphSubplotsPanel group={_('Structure')} name={_('Subplots')} />)
+            returning.push(<CustomGraphTransformsPanel group={_('Structure')} name={_('Transforms')} />)
+        } else {
+            returning.push(this.buildPanels(this.props.structureOptions, 'traces',
+             <GraphCreatePanel group={_('Structure')} name={_('Traces')} />))
+            returning.push(this.buildPanels(this.props.structureOptions, 'subplots',
+             <GraphSubplotsPanel group={_('Structure')} name={_('Subplots')} />))
+            returning.push(this.buildPanels(this.props.structureOptions, 'transforms',
+             <CustomGraphTransformsPanel group={_('Structure')} name={_('Transforms')} />))
+        }
+        return (
+            returning
+        )
+    }
+    return null;
+  }
+
+
+  buildStyle(_) {
+    if (this.props.styleOptions) {
+        const returning = []
+        if (this.props.styleOptions === true) {
+            returning.push(<StyleLayoutPanel group={_('Style')} name={_('General')} />)
+            returning.push(<StyleTracesPanel group={_('Style')} name={_('Traces')} />)
+            if (this.hasAxes()){returning.push(<StyleAxesPanel group={_('Style')} name={_('Axes')} />)}
+            if (this.hasMaps()){returning.push(<StyleMapsPanel group={_('Style')} name={_('Maps')} />)}
+            if (this.hasLegend()){returning.push(<StyleLegendPanel group={_('Style')} name={_('Legend')} />)}
+            if (this.hasColorbars()){returning.push(<StyleColorbarsPanel group={_('Style')} name={_('Color Bars')} />)}
+        } else {
+            returning.push(this.buildPanels(this.props.styleOptions, 'general', <StyleLayoutPanel group={_('Style')} name={_('General')} />))
+            returning.push(this.buildPanels(this.props.styleOptions, 'traces', <StyleTracesPanel group={_('Style')} name={_('Traces')} />))
+            if (this.hasAxes()){returning.push(this.buildPanels(this.props.styleOptions,'axes', <StyleAxesPanel group={_('Style')} name={_('Axes')} />))}
+            if (this.hasMaps()){returning.push(this.buildPanels(this.props.styleOptions,'maps', <StyleMapsPanel group={_('Style')} name={_('Maps')} />))}
+            if (this.hasLegend()){returning.push(this.buildPanels(this.props.styleOptions, 'legend', <StyleLegendPanel group={_('Style')} name={_('Legend')} />))}
+            if (this.hasColorbars()){returning.push(this.buildPanels(this.props.styleOptions, 'colorBars', <StyleColorbarsPanel group={_('Style')} name={_('Color Bars')} />))}
+        }
+        return (
+            returning
+        )
+    }
+    return null;
+  }
+
+  buildAnnotations(_) {
+    if (this.props.annotateOptions) {
+        const returning = []
+        if (this.props.annotateOptions === true) {
+            returning.push(<StyleNotesPanel group={_('Annotate')} name={_('Text')} />)
+            returning.push(<StyleShapesPanel group={_('Annotate')} name={_('Shapes')} />)
+            returning.push(<StyleImagesPanel group={_('Annotate')} name={_('Images')} />)
+        } else {
+            returning.push(this.buildPanels(this.props.annotateOptions, 'text', <StyleNotesPanel group={_('Annotate')} name={_('Text')} />))
+            returning.push(this.buildPanels(this.props.annotateOptions, 'shapes', <StyleShapesPanel group={_('Annotate')} name={_('Shapes')} />))
+            returning.push(this.buildPanels(this.props.annotateOptions, 'images', <StyleImagesPanel group={_('Annotate')} name={_('Images')} />))
+        }
+        return (
+            returning
+        )
+    }
+    return null;
+  }
+
+  buildControls(_) {
+    if (this.hasSliders() || this.hasMenus()) {
+        const returning = []
+        if (this.props.controlOptions) {
+            if (this.props.controlOptions === true) {
+                if (this.hasSliders()){returning.push(<StyleSlidersPanel group={_('Control')} name={_('Sliders')} />)}
+                if (this.hasMenus()){returning.push(<StyleUpdateMenusPanel group={_('Control')} name={_('Menus')} />)}
+            } else {
+                if (this.hasSliders()){returning.push(this.buildPanels(this.props.controlOptions, 'sliders', <StyleSlidersPanel group={_('Control')} name={_('Sliders')} />))}
+                if (this.hasMenus()){returning.push(this.buildPanels(this.props.controlOptions, 'menus',<StyleUpdateMenusPanel group={_('Control')} name={_('Menus')} />))}
+            }
+            return (
+                returning
+            )
+        }
+    }
+    return null;
+  }
+
   render() {
     const _ = this.context.localize;
-    const logo = this.props.logoSrc && <Logo src={this.props.logoSrc} />;
+    const logo = this.props.logoSrc && <CustomLogo src={this.props.logoSrc} style={this.props.logoStyle} />;
+    const structure = this.buildStructure(_)
+    const styles = this.buildStyle(_)
+    const annotate = this.buildAnnotations(_)
+    const controls = this.buildControls(_)
 
     return (
       <PanelMenuWrapper menuPanelOrder={this.props.menuPanelOrder}>
         {logo ? logo : null}
-        <GraphCreatePanel group={_('Structure')} name={_('Traces')} />
-        <GraphSubplotsPanel group={_('Structure')} name={_('Subplots')} />
-        <CustomGraphTransformsPanel group={_('Structure')} name={_('Transforms')} />
-        <StyleLayoutPanel group={_('Style')} name={_('General')} />
-        <StyleTracesPanel group={_('Style')} name={_('Traces')} />
-        {this.hasAxes() && <StyleAxesPanel group={_('Style')} name={_('Axes')} />}
-        {this.hasMaps() && <StyleMapsPanel group={_('Style')} name={_('Maps')} />}
-        {this.hasLegend() && <StyleLegendPanel group={_('Style')} name={_('Legend')} />}
-        {this.hasColorbars() && <StyleColorbarsPanel group={_('Style')} name={_('Color Bars')} />}
-        <StyleNotesPanel group={_('Annotate')} name={_('Text')} />
-        <StyleShapesPanel group={_('Annotate')} name={_('Shapes')} />
-        <StyleImagesPanel group={_('Annotate')} name={_('Images')} />
-        {this.hasSliders() && <StyleSlidersPanel group={_('Control')} name={_('Sliders')} />}
-        {this.hasMenus() && <StyleUpdateMenusPanel group={_('Control')} name={_('Menus')} />}
+        {structure}
+        {styles}
+        {annotate}
+        {controls}
         {this.props.children ? this.props.children : null}
       </PanelMenuWrapper>
     );
@@ -104,9 +193,36 @@ class ChartEditor extends Component {
 }
 
 ChartEditor.propTypes = {
-  children: PropTypes.node,
-  logoSrc: PropTypes.string,
-  menuPanelOrder: PropTypes.array,
+    children: PropTypes.node,
+    logoSrc: PropTypes.string,
+    logoStyle: PropTypes.object,
+    menuPanelOrder: PropTypes.array,
+    structureOptions: PropTypes.oneOfType([
+    PropTypes.bool,
+    PropTypes.shape({
+        traces: PropTypes.bool,
+        subplots: PropTypes.bool,
+        transforms: PropTypes.bool,
+    })]),
+    styleOptions: PropTypes.oneOfType([PropTypes.bool, PropTypes.shape({
+        general: PropTypes.bool,
+        traces: PropTypes.bool,
+        axes: PropTypes.bool,
+        maps: PropTypes.bool,
+        legend: PropTypes.bool,
+        colorBars: PropTypes.bool,
+    })]),
+    annotateOptions: PropTypes.oneOfType([PropTypes.bool,
+    PropTypes.shape({
+        text: PropTypes.bool,
+        shapes: PropTypes.bool,
+        images: PropTypes.bool,
+    })]),
+    controlOptions: PropTypes.oneOfType([PropTypes.bool,
+    PropTypes.shape({
+        sliders: PropTypes.bool,
+        menus: PropTypes.bool,
+    })]),
 };
 
 ChartEditor.contextTypes = {

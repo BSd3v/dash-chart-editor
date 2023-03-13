@@ -1,3 +1,6 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+export(''ChartEditor)
+export(''CustomLogo)
+export(''CustomTransformAccordion)
 export(''DashChartEditor)

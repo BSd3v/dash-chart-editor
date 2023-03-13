@@ -9,34 +9,101 @@ class DashChartEditor(Component):
 
 Keyword arguments:
 
-- children (boolean | number | string | dict | list; optional)
+- id (string; optional):
+    Dash prop to be registered for use with callbacks.
 
-- id (string; optional)
+- annotateOptions (dict; default True):
+    Options that drive the available options under the \"Annotate\"
+    tree.
 
-- data (boolean | number | string | dict | list; optional)
+    `annotateOptions` is a boolean | dict with keys:
 
-- dataSources (dict with strings as keys and values of type list; optional)
+    - images (boolean; optional)
 
-- frames (boolean | number | string | dict | list; optional)
+    - shapes (boolean; optional)
 
-- layout (boolean | number | string | dict | list; optional)
+    - text (boolean; optional)
 
-- loadFigure (dict with strings as keys and values of type boolean | number | string | dict | list; optional)
+- config (dict; default {editable: True}):
+    Plotly config options, listed here:
+    https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.
 
-- style (dict; optional)"""
+- controlOptions (dict; default True):
+    Options that drive the available options under the \"Control\"
+    tree.
+
+    `controlOptions` is a boolean | dict with keys:
+
+    - menus (boolean; optional)
+
+    - sliders (boolean; optional)
+
+- data (boolean | number | string | dict | list; optional):
+    Output data of the chart editor.
+
+- dataSources (dict with strings as keys and values of type list; optional):
+    Input dataSources for driving the chart editors selections.
+
+- frames (boolean | number | string | dict | list; optional):
+    Output frames of the chart editor.
+
+- layout (boolean | number | string | dict | list; optional):
+    Output layout of the chart editor.
+
+- loadFigure (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    {data, layout, frames} given to the chart, used to populate
+    selections and chart when loading.
+
+- logoSrc (string; optional):
+    Logo that will be displayed in the chart editor.
+
+- logoStyle (dict; optional):
+    Style object of the Logo.
+
+- structureOptions (dict; default True):
+    Options that drive the available options under the \"Structure\"
+    tree.
+
+    `structureOptions` is a boolean | dict with keys:
+
+    - subplots (boolean; optional)
+
+    - traces (boolean; optional)
+
+    - transforms (boolean; optional)
+
+- style (dict; optional):
+    style of the whole editing element, including charting area.
+
+- styleOptions (dict; default True):
+    Options that drive the available options under the \"Style\" tree.
+
+    `styleOptions` is a boolean | dict with keys:
+
+    - axes (boolean; optional)
+
+    - colorBars (boolean; optional)
+
+    - general (boolean; optional)
+
+    - legend (boolean; optional)
+
+    - maps (boolean; optional)
+
+    - traces (boolean; optional)"""
     _children_props = []
     _base_nodes = ['children']
     _namespace = 'dash_chart_editor'
     _type = 'DashChartEditor'
     @_explicitize_args
-    def __init__(self, children=None, id=Component.UNDEFINED, data=Component.UNDEFINED, dataSources=Component.UNDEFINED, layout=Component.UNDEFINED, frames=Component.UNDEFINED, style=Component.UNDEFINED, loadFigure=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['children', 'id', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'style']
+    def __init__(self, id=Component.UNDEFINED, dataSources=Component.UNDEFINED, data=Component.UNDEFINED, layout=Component.UNDEFINED, frames=Component.UNDEFINED, style=Component.UNDEFINED, config=Component.UNDEFINED, loadFigure=Component.UNDEFINED, logoSrc=Component.UNDEFINED, logoStyle=Component.UNDEFINED, structureOptions=Component.UNDEFINED, styleOptions=Component.UNDEFINED, annotateOptions=Component.UNDEFINED, controlOptions=Component.UNDEFINED, **kwargs):
+        self._prop_names = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['children', 'id', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'style']
+        self.available_properties = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
         _locals.update(kwargs)  # For wildcard attrs and excess named props
-        args = {k: _locals[k] for k in _explicit_args if k != 'children'}
+        args = {k: _locals[k] for k in _explicit_args}
 
-        super(DashChartEditor, self).__init__(children=children, **args)
+        super(DashChartEditor, self).__init__(**args)

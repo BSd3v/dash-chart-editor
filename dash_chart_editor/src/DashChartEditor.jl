@@ -5,6 +5,9 @@ using Dash
 const resources_path = realpath(joinpath( @__DIR__, "..", "deps"))
 const version = "0.0.1"
 
+include("jl/''_charteditor.jl")
+include("jl/''_customlogo.jl")
+include("jl/''_customtransformaccordion.jl")
 include("jl/''_dashcharteditor.jl")
 
 function __init__()
