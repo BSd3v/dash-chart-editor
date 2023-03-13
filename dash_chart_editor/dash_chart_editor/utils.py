@@ -144,17 +144,19 @@ figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length"
 
 def parseTransforms(transforms, returnstring, ysrc, xsrc, df=pd.DataFrame()):
     sorts = []
-    for t in transforms:
-        if 'enabled' in t:
-            if t['enabled']:
-                if t['type'] == 'sort':
-                    sorts.append(t)
-                returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
-        else:
-            if t['type'] == 'sort':
-                sorts.append(t)
-            returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
-        df.reset_index()
+    for y in ['filter', 'sort', 'aggregate']:
+        for t in transforms:
+            if t['type'] == y:
+                if 'enabled' in t:
+                    if t['enabled']:
+                        if t['type'] == 'sort':
+                            sorts.append(t)
+                        returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
+                else:
+                    if t['type'] == 'sort':
+                        sorts.append(t)
+                    returnstring, df = transformsFunctions[t['type']](t, df, returnstring, ysrc, xsrc)
+                df.reset_index()
     return returnstring, df, sorts
 
 def parseChartKeys_string(chart):
