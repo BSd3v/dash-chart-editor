@@ -72,7 +72,7 @@ Keyword arguments:
 
     - transforms (boolean; optional)
 
-- style (dict; optional):
+- style (dict; default {'width': '100%', 'height': '100%'}):
     style of the whole editing element, including charting area.
 
 - styleOptions (dict; default True):

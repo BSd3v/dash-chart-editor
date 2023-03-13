@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 // import plotly from 'plotly.js/dist/plotly';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
-import ChartEditor from "./ChartEditor.react"
+import ChartEditor from "../building_blocks/ChartEditor.react"
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 import {omit} from 'ramda';
 
@@ -107,6 +107,7 @@ DashChartEditor.defaultProps = {
     structureOptions: true,
     annotateOptions: true,
     controlOptions: true,
+    style: {'width': '100%', 'height': '100%'}
 }
 
 

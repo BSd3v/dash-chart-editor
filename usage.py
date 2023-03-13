@@ -20,7 +20,7 @@ app.layout = html.Div([
     dce.DashChartEditor(
         id='test',
         dataSources=df.to_dict('list'),
-        style={'width': '100vw', 'height': '50vh'},
+        #style={'width': '100vw', 'height': '50vh'},
         loadFigure=figure,
         logoSrc="https://busybee.alliancebee.com/static/logo.png",
         structureOptions={'transforms': True},
