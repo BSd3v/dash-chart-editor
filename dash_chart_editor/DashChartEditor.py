@@ -72,7 +72,7 @@ Keyword arguments:
 
     - transforms (boolean; optional)
 
-- style (dict; default {'width': '100%', 'height': '100%'}):
+- style (dict; default {width: '100%', height: '100%'}):
     style of the whole editing element, including charting area.
 
 - styleOptions (dict; default True):
@@ -90,16 +90,19 @@ Keyword arguments:
 
     - maps (boolean; optional)
 
-    - traces (boolean; optional)"""
+    - traces (boolean; optional)
+
+- traceOptions (boolean | number | string | dict | list; optional):
+    List of trace options to display."""
     _children_props = []
     _base_nodes = ['children']
     _namespace = 'dash_chart_editor'
     _type = 'DashChartEditor'
     @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, dataSources=Component.UNDEFINED, data=Component.UNDEFINED, layout=Component.UNDEFINED, frames=Component.UNDEFINED, style=Component.UNDEFINED, config=Component.UNDEFINED, loadFigure=Component.UNDEFINED, logoSrc=Component.UNDEFINED, logoStyle=Component.UNDEFINED, structureOptions=Component.UNDEFINED, styleOptions=Component.UNDEFINED, annotateOptions=Component.UNDEFINED, controlOptions=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions']
+    def __init__(self, id=Component.UNDEFINED, dataSources=Component.UNDEFINED, data=Component.UNDEFINED, layout=Component.UNDEFINED, frames=Component.UNDEFINED, style=Component.UNDEFINED, config=Component.UNDEFINED, loadFigure=Component.UNDEFINED, logoSrc=Component.UNDEFINED, logoStyle=Component.UNDEFINED, structureOptions=Component.UNDEFINED, styleOptions=Component.UNDEFINED, annotateOptions=Component.UNDEFINED, controlOptions=Component.UNDEFINED, traceOptions=Component.UNDEFINED, **kwargs):
+        self._prop_names = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions']
+        self.available_properties = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -14,7 +14,7 @@
 controlOptions=NULL, data=NULL, dataSources=NULL,
 frames=NULL, layout=NULL, loadFigure=NULL, logoSrc=NULL,
 logoStyle=NULL, structureOptions=NULL, style=NULL,
-styleOptions=NULL)
+styleOptions=NULL, traceOptions=NULL)
 }
 
 \arguments{
@@ -63,6 +63,8 @@ those elements have the following types:
   - maps (logical; optional)
   - legend (logical; optional)
   - colorbars (logical; optional). Options that drive the available options under the "Style" tree}
+
+\item{traceOptions}{Logical | numeric | character | named list | unnamed list. List of trace options to display}
 }
 
 \value{named list of JSON elements corresponding to React.js properties and their values}

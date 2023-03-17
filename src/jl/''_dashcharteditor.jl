@@ -40,9 +40,10 @@ Those elements have the following types:
   - `maps` (Bool; optional)
   - `legend` (Bool; optional)
   - `colorBars` (Bool; optional)
+- `traceOptions` (Bool | Real | String | Dict | Array; optional): List of trace options to display
 """
 function ''_dashcharteditor(; kwargs...)
-        available_props = Symbol[:id, :annotateOptions, :config, :controlOptions, :data, :dataSources, :frames, :layout, :loadFigure, :logoSrc, :logoStyle, :structureOptions, :style, :styleOptions]
+        available_props = Symbol[:id, :annotateOptions, :config, :controlOptions, :data, :dataSources, :frames, :layout, :loadFigure, :logoSrc, :logoStyle, :structureOptions, :style, :styleOptions, :traceOptions]
         wild_props = Symbol[]
         return Component("''_dashcharteditor", "DashChartEditor", "dash_chart_editor", available_props, wild_props; kwargs...)
 end

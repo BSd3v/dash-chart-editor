@@ -3,100 +3,118 @@ import PropTypes from 'prop-types';
 // import plotly from 'plotly.js/dist/plotly';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
-import ChartEditor from "../building_blocks/ChartEditor.react"
+import ChartEditor from '../building_blocks/ChartEditor.react';
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 import {omit} from 'ramda';
+import {SPLIT_ALLOWED, traceTypes, categoryLayout} from '../building_blocks/extraVars'
+import {chartCategory} from 'react-chart-editor/lib/lib/traceTypes';
 
 class DashChartEditor extends Component {
-  constructor(props) {
-    super(props);
-    this.gd = React.createRef();
-    this.state = {
-      data: [],
-      layout: {},
-      frames: [],
-      context: {},
-    };
+    constructor(props) {
+        super(props);
+        this.gd = React.createRef();
+        this.state = {
+            data: [],
+            layout: {},
+            frames: [],
+            context: {},
+            traceTypesConfig: {
+                complex: true,
+              },
+        };
 
-    this.updateOptions = this.updateOptions.bind(this)
-  }
+        this.state.traceTypesConfig.traces = (_) => traceTypes(_, chartCategory, this.props.traceOptions)
+        this.state.traceTypesConfig.categories = (_) => categoryLayout(_, chartCategory, this.state.traceTypesConfig.traces)
 
-  loadFigure(figure) {
-    this.updateOptions({data: figure.data, layout: figure.layout, frames: figure.frames})
-  }
+        this.updateOptions = this.updateOptions.bind(this);
+    }
 
-  updateOptions = ({data, layout, frames}) => {
+    loadFigure(figure) {
+        this.updateOptions({
+            data: figure.data,
+            layout: figure.layout,
+            frames: figure.frames,
+        });
+    }
+
+    updateOptions = ({data, layout, frames}) => {
         data.map((d) => {
             if ('transforms' in d) {
                 if (!TRANSFORMABLE_TRACES.includes(d.type)) {
-                    const newTransforms = []
-                    d.transforms.map((t) =>
-                        {
-                            if (t.type === 'filter') {
-                                newTransforms.push(t)
-                            }
+                    const newTransforms = [];
+                    d.transforms.map((t) => {
+                        if (t.type === 'filter' ||
+                        (SPLIT_ALLOWED.includes(d.type) && t.type === 'groupby')) {
+                            newTransforms.push(t);
                         }
-                    )
+                    });
                     if (newTransforms) {
-                        d.transforms = newTransforms
+                        d.transforms = newTransforms;
                     } else {
                         delete d.transforms;
                     }
                 }
             }
-        })
+        });
         this.props.setProps({
             data: JSON.parse(JSON.stringify(data)),
             layout: JSON.parse(JSON.stringify(layout)),
             frames: JSON.parse(JSON.stringify(frames)),
-        })
-        this.setState({data, layout, frames})
-  }
+        });
+        this.setState({data, layout, frames});
+    };
 
-  render() {
-    const {
-        id,
-        style,
-        setProps,
-        dataSources,
-        loadFigure,
-        config,
-        ...restProps
-    } = this.props;
+    render() {
+        const {
+            id,
+            style,
+            setProps,
+            dataSources,
+            loadFigure,
+            config,
+            traceOptions,
+            ...restProps
+        } = this.props;
 
-    if (loadFigure) {
-        this.loadFigure(loadFigure)
-        setProps({loadFigure: null})
+        if (loadFigure) {
+            this.loadFigure(loadFigure);
+            setProps({loadFigure: null});
+        }
+
+        const dataSourceOptions = Object.keys(dataSources).map((name) => ({
+            value: name,
+            label: name,
+        }));
+
+        return (
+            <div className="ploty-chart-editor" style={style} id={id}>
+                <PlotlyEditor
+                    ref={this.gd}
+                    dataSources={dataSources}
+                    dataSourceOptions={dataSourceOptions}
+                    data={this.state.data}
+                    layout={this.state.layout}
+                    config={config}
+                    frames={this.state.frames}
+                    plotly={window.Plotly}
+                    traceTypesConfig={this.state.traceTypesConfig}
+                    onUpdate={(data, layout, frames) =>
+                        this.updateOptions({data, layout, frames})
+                    }
+                    onRender={(data, layout, frames) =>
+                        this.updateOptions({data, layout, frames})
+                    }
+                    useResizeHandler
+                    debug
+                    advancedTraceTypeSelector
+                >
+                    <ChartEditor
+                        {...omit(['data', 'layout', 'frames'], restProps)}
+                    />
+                </PlotlyEditor>
+            </div>
+        );
     }
-
-    const dataSourceOptions = Object.keys(dataSources).map(name => ({
-      value: name,
-      label: name,
-    }));
-
-
-    return (
-      <div className="ploty-chart-editor" style={style} id={id}>
-        <PlotlyEditor
-          ref={this.gd}
-          dataSources={dataSources}
-          dataSourceOptions={dataSourceOptions}
-          data={this.state.data}
-          layout={this.state.layout}
-          config={config}
-          frames={this.state.frames}
-          plotly={window.Plotly}
-          onUpdate={(data, layout, frames) => this.updateOptions({data, layout, frames})}
-          onRender={(data, layout, frames) => this.updateOptions({data, layout, frames})}
-          useResizeHandler
-          debug
-          advancedTraceTypeSelector
-        >
-            <ChartEditor {...omit(['data', 'layout', 'frames'], restProps)}/>
-        </PlotlyEditor>
-      </div>
-    );
-  }
 }
 
 export default DashChartEditor;
@@ -107,40 +125,38 @@ DashChartEditor.defaultProps = {
     structureOptions: true,
     annotateOptions: true,
     controlOptions: true,
-    style: {'width': '100%', 'height': '100%'}
-}
-
+    style: {width: '100%', height: '100%'},
+};
 
 DashChartEditor.propTypes = {
-
     /**
-    * Dash prop to be registered for use with callbacks
-    */
+     * Dash prop to be registered for use with callbacks
+     */
     id: PropTypes.string,
 
     /**
-    * Input dataSources for driving the chart editors selections
-    */
+     * Input dataSources for driving the chart editors selections
+     */
     dataSources: PropTypes.objectOf(PropTypes.array),
 
     /**
-    * Output data of the chart editor
-    */
+     * Output data of the chart editor
+     */
     data: PropTypes.any,
 
     /**
-    * Output layout of the chart editor
-    */
+     * Output layout of the chart editor
+     */
     layout: PropTypes.any,
 
     /**
-    * Output frames of the chart editor
-    */
+     * Output frames of the chart editor
+     */
     frames: PropTypes.any,
 
     /**
-    * style of the whole editing element, including charting area
-    */
+     * style of the whole editing element, including charting area
+     */
     style: PropTypes.object,
 
     /**
@@ -148,69 +164,82 @@ DashChartEditor.propTypes = {
     */
 
     /**
-    * Plotly config options, listed here: https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js
-    */
+     * Plotly config options, listed here: https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js
+     */
     config: PropTypes.object,
 
     /**
-    * {data, layout, frames} given to the chart, used to populate selections and chart when loading
-    */
+     * {data, layout, frames} given to the chart, used to populate selections and chart when loading
+     */
     loadFigure: PropTypes.objectOf(PropTypes.any),
 
     /**
-    * Logo that will be displayed in the chart editor
-    */
+     * Logo that will be displayed in the chart editor
+     */
     logoSrc: PropTypes.string,
 
     /**
-    * Style object of the Logo
-    */
+     * Style object of the Logo
+     */
     logoStyle: PropTypes.object,
 
     /**
-    * Options that drive the available options under the "Structure" tree
-    */
+     * Options that drive the available options under the "Structure" tree
+     */
     structureOptions: PropTypes.oneOfType([
-    PropTypes.bool,
-    PropTypes.shape({
-        traces: PropTypes.bool,
-        subplots: PropTypes.bool,
-        transforms: PropTypes.bool,
-    })]),
+        PropTypes.bool,
+        PropTypes.shape({
+            traces: PropTypes.bool,
+            subplots: PropTypes.bool,
+            transforms: PropTypes.bool,
+        }),
+    ]),
 
     /**
-    * Options that drive the available options under the "Style" tree
-    */
-    styleOptions: PropTypes.oneOfType([PropTypes.bool, PropTypes.shape({
-        general: PropTypes.bool,
-        traces: PropTypes.bool,
-        axes: PropTypes.bool,
-        maps: PropTypes.bool,
-        legend: PropTypes.bool,
-        colorBars: PropTypes.bool,
-    })]),
+     * Options that drive the available options under the "Style" tree
+     */
+    styleOptions: PropTypes.oneOfType([
+        PropTypes.bool,
+        PropTypes.shape({
+            general: PropTypes.bool,
+            traces: PropTypes.bool,
+            axes: PropTypes.bool,
+            maps: PropTypes.bool,
+            legend: PropTypes.bool,
+            colorBars: PropTypes.bool,
+        }),
+    ]),
 
     /**
-    * Options that drive the available options under the "Annotate" tree
-    */
-    annotateOptions: PropTypes.oneOfType([PropTypes.bool,
-    PropTypes.shape({
-        text: PropTypes.bool,
-        shapes: PropTypes.bool,
-        images: PropTypes.bool,
-    })]),
+     * Options that drive the available options under the "Annotate" tree
+     */
+    annotateOptions: PropTypes.oneOfType([
+        PropTypes.bool,
+        PropTypes.shape({
+            text: PropTypes.bool,
+            shapes: PropTypes.bool,
+            images: PropTypes.bool,
+        }),
+    ]),
 
     /**
-    * Options that drive the available options under the "Control" tree
+     * Options that drive the available options under the "Control" tree
+     */
+    controlOptions: PropTypes.oneOfType([
+        PropTypes.bool,
+        PropTypes.shape({
+            sliders: PropTypes.bool,
+            menus: PropTypes.bool,
+        }),
+    ]),
+
+    /**
+    * List of trace options to display
     */
-    controlOptions: PropTypes.oneOfType([PropTypes.bool,
-    PropTypes.shape({
-        sliders: PropTypes.bool,
-        menus: PropTypes.bool,
-    })]),
+    traceOptions: PropTypes.any,
 
     /**
      * Dash-assigned callback that gets fired when the input changes
      */
     setProps: PropTypes.func,
-}
+};

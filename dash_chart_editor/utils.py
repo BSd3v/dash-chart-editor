@@ -1,4 +1,5 @@
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 import json
 import pandas as pd
 import plotly.express as px
@@ -78,7 +79,14 @@ otOps = {
     '{}': 'isin'
 }
 
-typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'}}
+typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'},
+                    'choropleth': {'xsrc': 'locationssrc', 'ysrc': 'zsrc'},
+                    'scattergeo': {'xsrc': 'locationssrc', 'ysrc': 'zsrc'},
+                    'scattergeolat': {'xsrc': 'latsrc', 'ysrc': 'zsrc'},
+                    'scattermapboxlat': {'xsrc': 'latsrc', 'ysrc': 'zsrc'},
+                    'densitymapboxlat': {'xsrc': 'latsrc', 'ysrc': 'zsrc'},
+                    'choroplethmapbox': {'xsrc': 'locationssrc', 'ysrc': 'zsrc'}
+                  }
 
 def filter(t, df, returnstring, ysrc, xsrc):
     try:
@@ -288,12 +296,43 @@ def parseChartKeys_fig(chart, df, figureArgs={}):
                 figureArgs[arg.replace('src', '')] = df[chart[arg]]
         return dropInvalidFigure(realChart, figureArgs, chart['type'].title())
 
+def makeSubplots(layout):
+    xcount = 0
+    xdomains = []
+    ycount = 0
+    ydomains = []
+    xspecs = []
+    yspecs = []
+    for l in layout:
+        if 'axis' in l:
+            if 'xaxis' in l:
+
+                if 'domain' in layout[l]:
+                    if layout[l]['domain'] not in xdomains:
+                        xdomains.append(layout[l]['domain'])
+                        xcount += 1
+                else:
+                    if xcount < 1:
+                        xcount = 1
+            elif 'yaxis' in l:
+                if 'domain' in layout[l]:
+                    if layout[l]['domain'] not in ydomains:
+                        ydomains.append(layout[l]['domain'])
+                        ycount += 1
+                else:
+                    if ycount < 1:
+                        ycount = 1
+    # print(layout)
+    # print(ycount, xcount)
+    return make_subplots(rows=ycount, cols=xcount)
+
 def chartToPython(figure, df):
     try:
         data = json.loads(figure)['data']
     except:
         data = figure['data']
-    fig = go.Figure()
+    fig = makeSubplots(figure['layout'])
+    print(data)
     returnstring = ''
     for chart in data:
         dff = df.copy()
@@ -306,10 +345,16 @@ def chartToPython(figure, df):
         if 'xsrc' in chart:
             xsrc = chart['xsrc']
         if chart['type'] in typeDataSource:
-            if typeDataSource[chart['type']]['xsrc'] in chart:
-                xsrc = chart[typeDataSource[chart['type']]['xsrc']]
-            if typeDataSource[chart['type']]['ysrc'] in chart:
-                ysrc = chart[typeDataSource[chart['type']]['ysrc']]
+            if 'latsrc' in chart:
+                if typeDataSource[chart['type']+'lat']['xsrc'] in chart:
+                    xsrc = chart[typeDataSource[chart['type']+'lat']['xsrc']]
+                if typeDataSource[chart['type']+'lat']['ysrc'] in chart:
+                    ysrc = chart[typeDataSource[chart['type']+'lat']['ysrc']]
+            else:
+                if typeDataSource[chart['type']]['xsrc'] in chart:
+                    xsrc = chart[typeDataSource[chart['type']]['xsrc']]
+                if typeDataSource[chart['type']]['ysrc'] in chart:
+                    ysrc = chart[typeDataSource[chart['type']]['ysrc']]
 
         if 'transforms' in chart:
             groups = []
