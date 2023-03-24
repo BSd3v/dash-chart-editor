@@ -22,7 +22,6 @@ def camelcaseSnake(name):
     return name
 
 def aggregate(t, df, returnstring, ysrc, xsrc):
-    print(t)
     aggs = {}
     aggs_fallback = {}
     if 'aggregations' in t:
@@ -332,7 +331,6 @@ def chartToPython(figure, df):
     except:
         data = figure['data']
     fig = makeSubplots(figure['layout'])
-    print(data)
     returnstring = ''
     for chart in data:
         dff = df.copy()
