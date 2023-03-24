@@ -48,24 +48,51 @@
       },
       "data": {
         "type": {
-          "name": "any"
+          "name": "arrayOf",
+          "value": {
+            "name": "object"
+          }
         },
         "required": false,
         "description": "Output data of the chart editor"
       },
       "layout": {
         "type": {
-          "name": "any"
+          "name": "object"
         },
         "required": false,
         "description": "Output layout of the chart editor"
       },
       "frames": {
         "type": {
-          "name": "any"
+          "name": "array"
         },
         "required": false,
         "description": "Output frames of the chart editor"
+      },
+      "figure": {
+        "type": {
+          "name": "exact",
+          "value": {
+            "data": {
+              "name": "arrayOf",
+              "value": {
+                "name": "object"
+              },
+              "required": false
+            },
+            "layout": {
+              "name": "object",
+              "required": false
+            },
+            "frames": {
+              "name": "array",
+              "required": false
+            }
+          }
+        },
+        "required": false,
+        "description": "Output figure of the chart editor (dcc.Graph esk output)"
       },
       "style": {
         "type": {

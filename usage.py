@@ -39,15 +39,12 @@ app.layout = html.Div([
 
 @app.callback(
     Output('output','children'),
-    Input('test', 'data'),
-    Input('test', 'layout'),
-    Input('test', 'frames'),
+    Input('test', 'figure'),
 )
-def outputData(data, layout, frames):
-    if data or layout or frames:
+def outputData(figure):
+    if figure:
         # cleaning data output for unnecessary columns
-        #print({'data': data, 'layout': layout, 'frames': frames})
-        for d in data:
+        for d in figure['data']:
             for k in ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon']:
                 if k in d.keys():
                     del d[k]
@@ -60,12 +57,12 @@ def outputData(data, layout, frames):
         dff = df.copy()
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
-            figure = dcc.Graph(figure=dce.chartToPython({'data': data, 'layout': layout, 'frames': frames}, dff))
-            return figure
-        except Exception as e:
+            fig = dcc.Graph(figure=dce.chartToPython(figure, dff))
+            return fig
+        except:
             print(traceback.format_exc())
             pass
-        return json.dumps({'data': data, 'layout': layout, 'frames': frames})\
+        return json.dumps(figure)\
             .replace('true','True')\
             .replace('false', 'False')\
             .replace('null', 'None')

@@ -6,7 +6,11 @@ import 'react-chart-editor/lib/react-chart-editor.css';
 import ChartEditor from '../building_blocks/ChartEditor.react';
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 import {omit} from 'ramda';
-import {SPLIT_ALLOWED, traceTypes, categoryLayout} from '../building_blocks/extraVars'
+import {
+    SPLIT_ALLOWED,
+    traceTypes,
+    categoryLayout,
+} from '../building_blocks/extraVars';
 import {chartCategory} from 'react-chart-editor/lib/lib/traceTypes';
 
 class DashChartEditor extends Component {
@@ -20,11 +24,17 @@ class DashChartEditor extends Component {
             context: {},
             traceTypesConfig: {
                 complex: true,
-              },
+            },
         };
 
-        this.state.traceTypesConfig.traces = (_) => traceTypes(_, chartCategory, this.props.traceOptions)
-        this.state.traceTypesConfig.categories = (_) => categoryLayout(_, chartCategory, this.state.traceTypesConfig.traces)
+        this.state.traceTypesConfig.traces = (_) =>
+            traceTypes(_, chartCategory, this.props.traceOptions);
+        this.state.traceTypesConfig.categories = (_) =>
+            categoryLayout(
+                _,
+                chartCategory,
+                this.state.traceTypesConfig.traces
+            );
 
         this.updateOptions = this.updateOptions.bind(this);
     }
@@ -43,8 +53,11 @@ class DashChartEditor extends Component {
                 if (!TRANSFORMABLE_TRACES.includes(d.type)) {
                     const newTransforms = [];
                     d.transforms.map((t) => {
-                        if (t.type === 'filter' ||
-                        (SPLIT_ALLOWED.includes(d.type) && t.type === 'groupby')) {
+                        if (
+                            t.type === 'filter' ||
+                            (SPLIT_ALLOWED.includes(d.type) &&
+                                t.type === 'groupby')
+                        ) {
                             newTransforms.push(t);
                         }
                     });
@@ -56,10 +69,20 @@ class DashChartEditor extends Component {
                 }
             }
         });
+        const newFrames = JSON.parse(JSON.stringify(frames));
+        const newData = JSON.parse(JSON.stringify(data));
+        const newLayout = JSON.parse(JSON.stringify(layout));
         this.props.setProps({
-            data: JSON.parse(JSON.stringify(data)),
-            layout: JSON.parse(JSON.stringify(layout)),
-            frames: JSON.parse(JSON.stringify(frames)),
+            data: newData,
+            layout: newLayout,
+            frames: newFrames,
+            figure: JSON.parse(
+                JSON.stringify({
+                    data: newData,
+                    layout: newLayout,
+                    frames: newFrames,
+                })
+            ),
         });
         this.setState({data, layout, frames});
     };
@@ -72,7 +95,6 @@ class DashChartEditor extends Component {
             dataSources,
             loadFigure,
             config,
-            traceOptions,
             ...restProps
         } = this.props;
 
@@ -109,7 +131,10 @@ class DashChartEditor extends Component {
                     advancedTraceTypeSelector
                 >
                     <ChartEditor
-                        {...omit(['data', 'layout', 'frames'], restProps)}
+                        {...omit(
+                            ['data', 'layout', 'frames', 'figure'],
+                            restProps
+                        )}
                     />
                 </PlotlyEditor>
             </div>
@@ -142,17 +167,26 @@ DashChartEditor.propTypes = {
     /**
      * Output data of the chart editor
      */
-    data: PropTypes.any,
+    data: PropTypes.arrayOf(PropTypes.object),
 
     /**
      * Output layout of the chart editor
      */
-    layout: PropTypes.any,
+    layout: PropTypes.object,
 
     /**
      * Output frames of the chart editor
      */
-    frames: PropTypes.any,
+    frames: PropTypes.array,
+
+    /**
+     * Output figure of the chart editor (dcc.Graph esk output)
+     */
+    figure: PropTypes.exact({
+        data: PropTypes.arrayOf(PropTypes.object),
+        layout: PropTypes.object,
+        frames: PropTypes.array,
+    }),
 
     /**
      * style of the whole editing element, including charting area
@@ -234,8 +268,8 @@ DashChartEditor.propTypes = {
     ]),
 
     /**
-    * List of trace options to display
-    */
+     * List of trace options to display
+     */
     traceOptions: PropTypes.any,
 
     /**

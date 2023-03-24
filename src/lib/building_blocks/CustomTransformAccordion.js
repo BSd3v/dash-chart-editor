@@ -7,7 +7,7 @@ import {
 } from 'react-chart-editor';
 import {PanelMessage} from 'react-chart-editor/lib/components/containers/PanelEmpty';
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
-import {SPLIT_ALLOWED} from '../building_blocks/extraVars'
+import {SPLIT_ALLOWED} from '../building_blocks/extraVars';
 
 const TransformFold = connectTransformToTrace(PlotlyFold);
 
@@ -33,8 +33,11 @@ class CustomTransformAccordion extends Component {
         tempTransformTypes.map((opt) => {
             if (TRANSFORMABLE_TRACES.includes(container.type)) {
                 transformTypes.push(opt);
-            } else if (opt.type === 'filter' ||
-               (SPLIT_ALLOWED.includes(container.type) && opt.type === 'groupby')) {
+            } else if (
+                opt.type === 'filter' ||
+                (SPLIT_ALLOWED.includes(container.type) &&
+                    opt.type === 'groupby')
+            ) {
                 transformTypes.push(opt);
             }
         });

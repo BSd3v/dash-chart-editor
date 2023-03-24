@@ -19,10 +19,15 @@ Those elements have the following types:
 Those elements have the following types:
   - `sliders` (Bool; optional)
   - `menus` (Bool; optional)
-- `data` (Bool | Real | String | Dict | Array; optional): Output data of the chart editor
+- `data` (Array of Dicts; optional): Output data of the chart editor
 - `dataSources` (Dict with Strings as keys and values of type Array; optional): Input dataSources for driving the chart editors selections
-- `frames` (Bool | Real | String | Dict | Array; optional): Output frames of the chart editor
-- `layout` (Bool | Real | String | Dict | Array; optional): Output layout of the chart editor
+- `figure` (optional): Output figure of the chart editor (dcc.Graph esk output). figure has the following type: lists containing elements 'data', 'layout', 'frames'.
+Those elements have the following types:
+  - `data` (Array of Dicts; optional)
+  - `layout` (Dict; optional)
+  - `frames` (Array; optional)
+- `frames` (Array; optional): Output frames of the chart editor
+- `layout` (Dict; optional): Output layout of the chart editor
 - `loadFigure` (Dict with Strings as keys and values of type Bool | Real | String | Dict | Array; optional): {data, layout, frames} given to the chart, used to populate selections and chart when loading
 - `logoSrc` (String; optional): Logo that will be displayed in the chart editor
 - `logoStyle` (Dict; optional): Style object of the Logo
@@ -43,7 +48,7 @@ Those elements have the following types:
 - `traceOptions` (Bool | Real | String | Dict | Array; optional): List of trace options to display
 """
 function ''_dashcharteditor(; kwargs...)
-        available_props = Symbol[:id, :annotateOptions, :config, :controlOptions, :data, :dataSources, :frames, :layout, :loadFigure, :logoSrc, :logoStyle, :structureOptions, :style, :styleOptions, :traceOptions]
+        available_props = Symbol[:id, :annotateOptions, :config, :controlOptions, :data, :dataSources, :figure, :frames, :layout, :loadFigure, :logoSrc, :logoStyle, :structureOptions, :style, :styleOptions, :traceOptions]
         wild_props = Symbol[]
         return Component("''_dashcharteditor", "DashChartEditor", "dash_chart_editor", available_props, wild_props; kwargs...)
 end

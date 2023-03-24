@@ -12,9 +12,9 @@
 \usage{
 ''DashChartEditor(id=NULL, annotateOptions=NULL, config=NULL,
 controlOptions=NULL, data=NULL, dataSources=NULL,
-frames=NULL, layout=NULL, loadFigure=NULL, logoSrc=NULL,
-logoStyle=NULL, structureOptions=NULL, style=NULL,
-styleOptions=NULL, traceOptions=NULL)
+figure=NULL, frames=NULL, layout=NULL, loadFigure=NULL,
+logoSrc=NULL, logoStyle=NULL, structureOptions=NULL,
+style=NULL, styleOptions=NULL, traceOptions=NULL)
 }
 
 \arguments{
@@ -33,13 +33,19 @@ those elements have the following types:
   - sliders (logical; optional)
   - menus (logical; optional). Options that drive the available options under the "Control" tree}
 
-\item{data}{Logical | numeric | character | named list | unnamed list. Output data of the chart editor}
+\item{data}{List of named lists. Output data of the chart editor}
 
 \item{dataSources}{List with named elements and values of type unnamed list. Input dataSources for driving the chart editors selections}
 
-\item{frames}{Logical | numeric | character | named list | unnamed list. Output frames of the chart editor}
+\item{figure}{Lists containing elements 'data', 'layout', 'frames'.
+those elements have the following types:
+  - data (list of named lists; optional)
+  - layout (named list; optional)
+  - frames (unnamed list; optional). Output figure of the chart editor (dcc.Graph esk output)}
 
-\item{layout}{Logical | numeric | character | named list | unnamed list. Output layout of the chart editor}
+\item{frames}{Unnamed list. Output frames of the chart editor}
+
+\item{layout}{Named list. Output layout of the chart editor}
 
 \item{loadFigure}{List with named elements and values of type logical | numeric | character | named list | unnamed list. {data, layout, frames} given to the chart, used to populate selections and chart when loading}
 
