@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
 See more demo apps in the `/examples` folder
 
-- `quickstarat.py`  The quickstart app shown above.    
+- `quickstart.py`  The quickstart app shown above.    
 
 - `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor.   
 
