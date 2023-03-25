@@ -7,7 +7,6 @@ Example of ways to customize DashChartEditor
 """
 
 
-
 import dash_chart_editor as dce
 from dash import Dash, html
 import plotly.express as px

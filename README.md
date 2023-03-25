@@ -55,8 +55,13 @@ See more demo apps in the `/examples` folder
   - set graph mode bar menu with `config`.  See all the options https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.
  
 
+- `change_datasets.py` - An example showing loading different datasets in a dropdown
 
+### Contributing
 
+We welcome contributions to dash-chart-editor. If you find a bug or something is unclear please submit a bug report, if you have ideas for new features please feel free to make a feature request.
+
+If you would like to submit a pull request, please read our [contributing guide](https://github.com/BSd3v/dash-chart-editor/blob/dev/CONTRIBUTING.md), which contains instructions on how to build and install dash-chart-editor locally, and how to submit the pull request itself.
 
 ### Dash Chart Editor Reference
 
