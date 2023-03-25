@@ -1,0 +1,4 @@
+dash-bootstrap-components>=1.4.1
+dash-bootstrap-templates>=1.0.8
+dash>=2.0
+pandas>=1.4.0

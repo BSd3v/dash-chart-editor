@@ -1,2 +1,4 @@
 # dash is required to call `build:py`
 dash[dev]>=2.0.0
+pandas==1.4.0;python_version>="3.8"
+pandas==1.1.5;python_version<"3.8"
