@@ -43,9 +43,17 @@ if __name__ == "__main__":
 
 See more demo apps in the `/examples` folder
 
-- `quickstarat.py`  The quickstart app shown above
-- `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor
-- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library
+- `quickstarat.py`  The quickstart app shown above.    
+
+- `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor.   
+
+- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library.    
+
+- `customize.py` - Example of ways to customize DashChartEditor
+  - add a logo with `logoSrc`
+  - only allow certain figure types with `traceOptions`
+  - set graph mode bar menu with `config`.  See all the options https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.
+ 
 
 
 
