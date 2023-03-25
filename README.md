@@ -45,7 +45,7 @@ See more demo apps in the `/examples` folder
 
 - `quickstarat.py`  The quickstart app shown above
 - `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor
-- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstsrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library
+- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library
 
 
 

@@ -1,6 +1,6 @@
 # CONTRIBUTING to Dash Chart Editor
 
-Thanks for your interestin in contributing to this open source project.
+Thanks for your interest in contributing to this open source project.
 
 ### Setting up the environment
 Here are the steps for building and testing locally:
@@ -46,11 +46,11 @@ Pull requests are welcome. Thanks for contributing to Dash Chart Editor.
 2. If you cloned a while ago, get the latest changes from upstream:
 
    ```bash
-   git checkout main
-   git pull upstream main
+   git checkout dev
+   git pull upstream dev
    ```
 
-3. Create a new topic branch (off the main project development branch) to
+3. Create a new topic branch (off the dev project development branch) to
    contain your feature, change, or fix:
 
    ```bash
@@ -66,7 +66,7 @@ Pull requests are welcome. Thanks for contributing to Dash Chart Editor.
 5. Locally merge (or rebase) the upstream development branch into your topic branch:
 
    ```bash
-   git pull [--rebase] upstream main
+   git pull [--rebase] upstream dev
    ```
 
 6. Push your topic branch up to your fork:
@@ -76,7 +76,7 @@ Pull requests are welcome. Thanks for contributing to Dash Chart Editor.
    ```
 
 7. [Open a Pull Request](https://help.github.com/articles/about-pull-requests/)
-   with a clear title and description against the `main` branch.
+   with a clear title and description against the `dev` branch.
 
 ------------
 ------------
