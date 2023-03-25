@@ -1,96 +1,155 @@
-# dash-chart-editor
+# Dash Chart Editor
 
-dash-chart-editor is a Dash component library.
+Dash Chart Editor is a Dash component wrapper for the [Plotly React Chart Editor](https://github.com/plotly/react-chart-editor) package, enabling you to use an editor panel for Plotly charts in your Dash app.
 
-Get started with:
-1. Install Dash and its dependencies: https://dash.plotly.com/installation
-2. Run `python usage.py`
-3. Visit http://localhost:8050 in your web browser
+### Installation
+`pip install dash-chart-editor`
 
-## Contributing
+To build locally see the [Contributing Guide](https://github.com/BSd3v/dash-chart-editor/blob/main/CONTRIBUTING.md)
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-### Install dependencies
+### Demo and Quickstart
 
-If you have selected install_dependencies during the prompt, you can skip this part.
 
-1. Install npm packages
-    ```
-    $ npm install
-    ```
-2. Create a virtual env and activate.
-    ```
-    $ virtualenv venv
-    $ . venv/bin/activate
-    ```
-    _Note: venv\Scripts\activate for windows_
+![chart-editor-quickstart](https://user-images.githubusercontent.com/72614349/227724301-e5b23a7b-3f23-423a-bebd-a88ba47dbb7c.gif)
 
-3. Install python packages required to build components.
-    ```
-    $ pip install -r requirements.txt
-    ```
-4. Install the python packages for testing (optional)
-    ```
-    $ pip install -r tests/requirements.txt
-    ```
 
-### Write your component code in `src/lib/components/DashChartEditor.react.js`.
 
-- The demo app is in `src/demo` and you will import your example component code into your demo app.
-- Test your code in a Python environment:
-    1. Build your code
-        ```
-        $ npm run build
-        ```
-    2. Run and modify the `usage.py` sample dash app:
-        ```
-        $ python usage.py
-        ```
-- Write tests for your component.
-    - A sample test is available in `tests/test_usage.py`, it will load `usage.py` and you can then automate interactions with selenium.
-    - Run the tests with `$ pytest tests`.
-    - The Dash team uses these types of integration tests extensively. Browse the Dash component code on GitHub for more examples of testing (e.g. https://github.com/plotly/dash-core-components)
-- Add custom styles to your component by putting your custom CSS files into your distribution folder (`dash_chart_editor`).
-    - Make sure that they are referenced in `MANIFEST.in` so that they get properly included when you're ready to publish your component.
-    - Make sure the stylesheets are added to the `_css_dist` dict in `dash_chart_editor/__init__.py` so dash will serve them automatically when the component suite is requested.
-- [Review your code](./review_checklist.md)
+```python
+import dash_chart_editor as dce
+from dash import Dash, html
+import plotly.express as px
 
-### Create a production build and publish:
 
-1. Build your code:
-    ```
-    $ npm run build
-    ```
-2. Create a Python distribution
-    ```
-    $ python setup.py sdist bdist_wheel
-    ```
-    This will create source and wheel distribution in the generated the `dist/` folder.
-    See [PyPA](https://packaging.python.org/guides/distributing-packages-using-setuptools/#packaging-your-project)
-    for more information.
+app = Dash(__name__, external_scripts=["https://cdn.plot.ly/plotly-2.18.2.min.js"])
 
-3. Test your tarball by copying it into a new environment and installing it locally:
-    ```
-    $ pip install dash_chart_editor-0.0.1.tar.gz
-    ```
+df = px.data.gapminder()
 
-4. If it works, then you can publish the component to NPM and PyPI:
-    1. Publish on PyPI
-        ```
-        $ twine upload dist/*
-        ```
-    2. Cleanup the dist folder (optional)
-        ```
-        $ rm -rf dist
-        ```
-    3. Publish on NPM (Optional if chosen False in `publish_on_npm`)
-        ```
-        $ npm publish
-        ```
-        _Publishing your component to NPM will make the JavaScript bundles available on the unpkg CDN. By default, Dash serves the component library's CSS and JS locally, but if you choose to publish the package to NPM you can set `serve_locally` to `False` and you may see faster load times._
+app.layout = html.Div([
+    html.H4("Dash Chart Editor Demo with the Plotly Gapminder dataset"),
+    dce.DashChartEditor(
+        dataSources=df.to_dict("list"),
+    )
+])
 
-5. Share your component with the community! https://community.plotly.com/c/dash
-    1. Publish this repository to GitHub
-    2. Tag your GitHub repository with the plotly-dash tag so that it appears here: https://github.com/topics/plotly-dash
-    3. Create a post in the Dash community forum: https://community.plotly.com/c/dash
+
+if __name__ == "__main__":
+    app.run_server(debug=True)
+
+
+```
+
+### Examples
+
+See more demo apps in the `/examples` folder
+
+- `quickstarat.py`  The quickstart app shown above
+- `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor
+- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstsrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library
+
+
+
+
+### Dash Chart Editor Reference
+
+Access this documentation in your Python terminal with:
+```
+>>> import dash_chart_editor
+>>> help(dash_chart_editor.DashChartEditor)
+
+```
+
+```   
+- id (string; optional):
+    Dash prop to be registered for use with callbacks.
+   
+- annotateOptions (dict; default True):
+    Options that drive the available options under the "Annotate"
+    tree.
+   
+    `annotateOptions` is a boolean | dict with keys:
+   
+    - images (boolean; optional)
+   
+    - shapes (boolean; optional)
+   
+    - text (boolean; optional)
+   
+- config (dict; default {editable: True}):
+    Plotly config options, listed here:
+    https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.
+   
+- controlOptions (dict; default True):
+    Options that drive the available options under the "Control"
+    tree.
+   
+    `controlOptions` is a boolean | dict with keys:
+   
+    - menus (boolean; optional)
+   
+    - sliders (boolean; optional)
+   
+- data (boolean | number | string | dict | list; optional):
+    Output data of the chart editor.
+   
+- dataSources (dict with strings as keys and values of type list; optional):
+    Input dataSources for driving the chart editors selections.
+ 
+- figure (dict; optional):
+     Output figure of the chart editor (dcc.Graph esk output).
+
+- frames (boolean | number | string | dict | list; optional):
+    Output frames of the chart editor.
+   
+- layout (boolean | number | string | dict | list; optional):
+    Output layout of the chart editor.
+   
+- loadFigure (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    {data, layout, frames} given to the chart, used to populate
+    selections and chart when loading.
+   
+- logoSrc (string; optional):
+    Logo that will be displayed in the chart editor.
+   
+- logoStyle (dict; optional):
+    Style object of the Logo.
+   
+- structureOptions (dict; default True):
+    Options that drive the available options under the "Structure"
+    tree.
+   
+    `structureOptions` is a boolean | dict with keys:
+   
+    - subplots (boolean; optional)
+   
+    - traces (boolean; optional)
+   
+    - transforms (boolean; optional)
+   
+- style (dict; default {width: '100%', height: '100%'}):
+    style of the whole editing element, including charting area.
+   
+- styleOptions (dict; default True):
+    Options that drive the available options under the "Style" tree.
+   
+    `styleOptions` is a boolean | dict with keys:
+   
+    - axes (boolean; optional)
+   
+    - colorBars (boolean; optional)
+   
+    - general (boolean; optional)
+   
+    - legend (boolean; optional)
+   
+    - maps (boolean; optional)
+   
+    - traces (boolean; optional)
+   
+- traceOptions (boolean | number | string | dict | list; optional):
+    List of trace options to display.
+ ``` 
+
+
+
+
