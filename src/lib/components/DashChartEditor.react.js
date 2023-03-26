@@ -69,7 +69,22 @@ class DashChartEditor extends Component {
                 }
             }
         });
-        const newFrames = JSON.parse(JSON.stringify(frames));
+        let newFrames;
+        if (frames) {
+            newFrames = JSON.parse(JSON.stringify(frames));
+        } else {
+            newFrames = [];
+        }
+        if (layout.xaxis) {
+            if (!('title' in layout.xaxis) && data[0].xsrc) {
+                layout.xaxis.title = {text: data[0].xsrc};
+            }
+        }
+        if (layout.yaxis) {
+            if (!('title' in layout.yaxis) && data[0].ysrc) {
+                layout.yaxis.title = {text: data[0].ysrc};
+            }
+        }
         const newData = JSON.parse(JSON.stringify(data));
         const newLayout = JSON.parse(JSON.stringify(layout));
         this.props.setProps({
