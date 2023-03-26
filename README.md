@@ -52,7 +52,9 @@ See more demo apps in the `/examples` folder
 - `customize.py` - Example of ways to customize DashChartEditor
   - add a logo with `logoSrc`
   - only allow certain figure types with `traceOptions`
-  - set graph mode bar menu with `config`.  See all the options https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.
+  - set graph mode bar menu with `config`.  See all the options https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.  
+  
+- `default_figure.py` - Shows how to add a default figure to use when the app starts.
  
 
 - `change_datasets.py` - An example showing loading different datasets in a dropdown
