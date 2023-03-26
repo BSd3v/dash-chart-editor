@@ -1,11 +1,15 @@
 """
 Example of including a default figure to use with dash-chart-editor
 
-Note that it's necessary to add the following to the default figure:
+Note that it's necessary to add the source reference to the default figure.
+In this example, it's a scatter, so the `xsrc` and `ysrc` are required.
 
   - `xsrc` – Sets the source reference on dash-chart-editor for x.
   - `ysrc` – Sets the source reference on dash-chart-editor for y.
 
+Be sure to include the correct source reference for the figure type.
+E.g., for pie, it’s `labelssrc` and `valuesrc`.  For maps, it’s `locationsrc` and `xsrc`.
+See the Plotly reference docs for more information. https://plotly.github.io/plotly.py-docs/plotly.graph_objects.html
 """
 
 
