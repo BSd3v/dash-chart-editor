@@ -429,3 +429,15 @@ def chartToPython(figure, df):
     fig.update_layout(template='none')
     fig = dropInvalidLayout(figure['layout'], fig)
     return fig
+
+def cleanDataFromFigure(figure):
+    for d in figure['data']:
+        for k in ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon']:
+            if k in d.keys():
+                del d[k]
+        if 'transforms' in d:
+            for t in d['transforms']:
+                for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target', 'labels', 'locations', 'lat', 'lon']:
+                    if k in t.keys():
+                        del t[k]
+    return figure

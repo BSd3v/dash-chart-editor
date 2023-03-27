@@ -44,16 +44,8 @@ app.layout = html.Div([
 def outputData(figure):
     if figure:
         # cleaning data output for unnecessary columns
-        for d in figure['data']:
-            for k in ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon']:
-                if k in d.keys():
-                    del d[k]
-            if 'transforms' in d:
-                for t in d['transforms']:
-                    for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target', 'labels', 'locations', 'lat', 'lon']:
-                        if k in t.keys():
-                            del t[k]
-        #print(layout)
+        figure = dce.cleanDataFromFigure(figure)
+        print(figure)
         dff = df.copy()
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
