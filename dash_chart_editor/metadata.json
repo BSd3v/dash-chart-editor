@@ -11,6 +11,10 @@
           {
             "name": "figure",
             "type": null
+          },
+          {
+            "name": "bypass",
+            "type": null
           }
         ],
         "returns": null

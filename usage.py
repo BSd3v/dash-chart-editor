@@ -1,7 +1,7 @@
 import traceback
 
 import dash_chart_editor as dce
-from dash import Dash, callback, html, Input, Output, dcc
+from dash import Dash, callback, html, Input, Output, dcc, no_update
 import plotly.express as px
 import plotly.graph_objs as go
 import json
@@ -39,30 +39,33 @@ app.layout = html.Div([
                 ]
                 }
     ),
-    html.Div(id='output')
+    html.Button(id='reset', children='resetting'),
+    dcc.Graph(id='output')
 ])
 
 @app.callback(
-    Output('output','children'),
+    Output('output','figure'),
     Input('test', 'figure'),
 )
 def outputData(figure):
     if figure:
         # cleaning data output for unnecessary columns
         figure = dce.cleanDataFromFigure(figure)
-        print(figure)
-        dff = df.copy()
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
-            fig = dcc.Graph(figure=dce.chartToPython(figure, dff))
+            fig = dce.chartToPython(figure, df)
+            fig.show()
             return fig
         except:
             print(traceback.format_exc())
             pass
-        return json.dumps(figure)\
-            .replace('true','True')\
-            .replace('false', 'False')\
-            .replace('null', 'None')
+        return no_update
+
+@app.callback(Output('test', 'loadFigure'),
+              Input('reset', 'n_clicks'))
+def reset(n):
+    if n:
+        return fig
 
 
 if __name__ == '__main__':

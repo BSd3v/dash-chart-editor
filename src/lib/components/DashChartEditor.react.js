@@ -25,6 +25,7 @@ class DashChartEditor extends Component {
             traceTypesConfig: {
                 complex: true,
             },
+            mounted: false,
         };
 
         this.state.traceTypesConfig.traces = (_) =>
@@ -39,12 +40,23 @@ class DashChartEditor extends Component {
         this.updateOptions = this.updateOptions.bind(this);
     }
 
-    loadFigure(figure) {
-        this.updateOptions({
-            data: figure.data,
-            layout: figure.layout,
-            frames: figure.frames,
-        });
+    componentDidMount() {
+        this.setState({mounted: true});
+        if (this.props.loadFigure) {
+            this.loadFigure(this.props.loadFigure, true);
+        }
+    }
+
+    loadFigure(figure, bypass) {
+        const {setProps} = this.props;
+        if (this.state.mounted || bypass) {
+            this.updateOptions({
+                data: figure.data,
+                layout: figure.layout,
+                frames: figure.frames,
+            });
+            setProps({loadFigure: null});
+        }
     }
 
     updateOptions = ({data, layout, frames}) => {
@@ -103,25 +115,17 @@ class DashChartEditor extends Component {
     };
 
     render() {
-        const {
-            id,
-            style,
-            setProps,
-            dataSources,
-            loadFigure,
-            config,
-            ...restProps
-        } = this.props;
-
-        if (loadFigure) {
-            this.loadFigure(loadFigure);
-            setProps({loadFigure: null});
-        }
+        const {id, style, dataSources, loadFigure, config, ...restProps} =
+            this.props;
 
         const dataSourceOptions = Object.keys(dataSources).map((name) => ({
             value: name,
             label: name,
         }));
+
+        if (loadFigure) {
+            this.loadFigure(loadFigure);
+        }
 
         return (
             <div className="ploty-chart-editor" style={style} id={id}>
