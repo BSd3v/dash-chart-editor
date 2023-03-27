@@ -98,18 +98,21 @@ class ChartEditor extends Component {
                     <CustomGraphCreatePanel
                         group={_('Structure')}
                         name={_('Traces')}
+                        key={'traces'}
                     />
                 );
                 returning.push(
                     <GraphSubplotsPanel
                         group={_('Structure')}
                         name={_('Subplots')}
+                        key={'subplots'}
                     />
                 );
                 returning.push(
                     <CustomGraphTransformsPanel
                         group={_('Structure')}
                         name={_('Transforms')}
+                        key={'transforms'}
                     />
                 );
             } else {
@@ -120,6 +123,7 @@ class ChartEditor extends Component {
                         <CustomGraphCreatePanel
                             group={_('Structure')}
                             name={_('Traces')}
+                            key={'traces'}
                         />
                     )
                 );
@@ -130,6 +134,7 @@ class ChartEditor extends Component {
                         <GraphSubplotsPanel
                             group={_('Structure')}
                             name={_('Subplots')}
+                            key={'subplots'}
                         />
                     )
                 );
@@ -140,6 +145,7 @@ class ChartEditor extends Component {
                         <CustomGraphTransformsPanel
                             group={_('Structure')}
                             name={_('Transforms')}
+                            key={'transforms'}
                         />
                     )
                 );
@@ -154,19 +160,35 @@ class ChartEditor extends Component {
             const returning = [];
             if (this.props.styleOptions === true) {
                 returning.push(
-                    <StyleLayoutPanel group={_('Style')} name={_('General')} />
+                    <StyleLayoutPanel
+                        group={_('Style')}
+                        name={_('General')}
+                        key={'general'}
+                    />
                 );
                 returning.push(
-                    <StyleTracesPanel group={_('Style')} name={_('Traces')} />
+                    <StyleTracesPanel
+                        group={_('Style')}
+                        name={_('Traces')}
+                        key={'traces_style'}
+                    />
                 );
                 if (this.hasAxes()) {
                     returning.push(
-                        <StyleAxesPanel group={_('Style')} name={_('Axes')} />
+                        <StyleAxesPanel
+                            group={_('Style')}
+                            name={_('Axes')}
+                            key={'axes'}
+                        />
                     );
                 }
                 if (this.hasMaps()) {
                     returning.push(
-                        <StyleMapsPanel group={_('Style')} name={_('Maps')} />
+                        <StyleMapsPanel
+                            group={_('Style')}
+                            name={_('Maps')}
+                            key={'maps'}
+                        />
                     );
                 }
                 if (this.hasLegend()) {
@@ -174,6 +196,7 @@ class ChartEditor extends Component {
                         <StyleLegendPanel
                             group={_('Style')}
                             name={_('Legend')}
+                            key={'legend'}
                         />
                     );
                 }
@@ -182,6 +205,7 @@ class ChartEditor extends Component {
                         <StyleColorbarsPanel
                             group={_('Style')}
                             name={_('Color Bars')}
+                            key={'colorBars'}
                         />
                     );
                 }
@@ -193,6 +217,7 @@ class ChartEditor extends Component {
                         <StyleLayoutPanel
                             group={_('Style')}
                             name={_('General')}
+                            key={'general'}
                         />
                     )
                 );
@@ -203,6 +228,7 @@ class ChartEditor extends Component {
                         <StyleTracesPanel
                             group={_('Style')}
                             name={_('Traces')}
+                            key={'traces_style'}
                         />
                     )
                 );
@@ -214,6 +240,7 @@ class ChartEditor extends Component {
                             <StyleAxesPanel
                                 group={_('Style')}
                                 name={_('Axes')}
+                                key={'axes'}
                             />
                         )
                     );
@@ -226,6 +253,7 @@ class ChartEditor extends Component {
                             <StyleMapsPanel
                                 group={_('Style')}
                                 name={_('Maps')}
+                                key={'maps'}
                             />
                         )
                     );
@@ -238,6 +266,7 @@ class ChartEditor extends Component {
                             <StyleLegendPanel
                                 group={_('Style')}
                                 name={_('Legend')}
+                                key={'legend'}
                             />
                         )
                     );
@@ -250,6 +279,7 @@ class ChartEditor extends Component {
                             <StyleColorbarsPanel
                                 group={_('Style')}
                                 name={_('Color Bars')}
+                                key={'colorBars'}
                             />
                         )
                     );
@@ -265,18 +295,24 @@ class ChartEditor extends Component {
             const returning = [];
             if (this.props.annotateOptions === true) {
                 returning.push(
-                    <StyleNotesPanel group={_('Annotate')} name={_('Text')} />
+                    <StyleNotesPanel
+                        group={_('Annotate')}
+                        name={_('Text')}
+                        key={'text'}
+                    />
                 );
                 returning.push(
                     <StyleShapesPanel
                         group={_('Annotate')}
                         name={_('Shapes')}
+                        key={'shapes'}
                     />
                 );
                 returning.push(
                     <StyleImagesPanel
                         group={_('Annotate')}
                         name={_('Images')}
+                        key={'images'}
                     />
                 );
             } else {
@@ -287,6 +323,7 @@ class ChartEditor extends Component {
                         <StyleNotesPanel
                             group={_('Annotate')}
                             name={_('Text')}
+                            key={'text'}
                         />
                     )
                 );
@@ -297,6 +334,7 @@ class ChartEditor extends Component {
                         <StyleShapesPanel
                             group={_('Annotate')}
                             name={_('Shapes')}
+                            key={'shapes'}
                         />
                     )
                 );
@@ -307,6 +345,7 @@ class ChartEditor extends Component {
                         <StyleImagesPanel
                             group={_('Annotate')}
                             name={_('Images')}
+                            key={'images'}
                         />
                     )
                 );
@@ -326,6 +365,7 @@ class ChartEditor extends Component {
                             <StyleSlidersPanel
                                 group={_('Control')}
                                 name={_('Sliders')}
+                                key={'sliders'}
                             />
                         );
                     }
@@ -334,6 +374,7 @@ class ChartEditor extends Component {
                             <StyleUpdateMenusPanel
                                 group={_('Control')}
                                 name={_('Menus')}
+                                key={'menus'}
                             />
                         );
                     }
@@ -346,6 +387,7 @@ class ChartEditor extends Component {
                                 <StyleSlidersPanel
                                     group={_('Control')}
                                     name={_('Sliders')}
+                                    key={'sliders'}
                                 />
                             )
                         );
@@ -358,6 +400,7 @@ class ChartEditor extends Component {
                                 <StyleUpdateMenusPanel
                                     group={_('Control')}
                                     name={_('Menus')}
+                                    key={'menus'}
                                 />
                             )
                         );

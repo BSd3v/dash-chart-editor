@@ -1,12 +1,6 @@
-import traceback
-
 import dash_chart_editor as dce
 from dash import Dash, callback, html, Input, Output, dcc, no_update
-import plotly.express as px
-import plotly.graph_objs as go
-import json
 import traceback
-from pprint import pprint
 import yfinance as yf
 
 app = Dash(__name__,
@@ -54,7 +48,6 @@ def outputData(figure):
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
             fig = dce.chartToPython(figure, df)
-            fig.show()
             return fig
         except:
             print(traceback.format_exc())
