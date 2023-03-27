@@ -232,7 +232,10 @@ def dropInvalidLayout(layout, fig):
                 x = 0
                 try:
                     while x < len(path):
-                        newDict = newDict[camelcaseSnake(path[x])]
+                        if camelcaseSnake(path[x]) in newDict:
+                            newDict = newDict[camelcaseSnake(path[x])]
+                        elif camelcaseSnake(path[x]).replace('_', '') in newDict:
+                            newDict = newDict[camelcaseSnake(path[x]).replace('_', '')]
                         x += 1
 
                     del newDict[key]
@@ -431,13 +434,15 @@ def chartToPython(figure, df):
     return fig
 
 def cleanDataFromFigure(figure):
+    cleaning = ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon', 'open', 'close', 'low', 'high',
+                'target']
     for d in figure['data']:
-        for k in ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon']:
+        for k in cleaning:
             if k in d.keys():
                 del d[k]
         if 'transforms' in d:
             for t in d['transforms']:
-                for k in ['x', 'y', 'z', 'values', 'meta', 'groups', 'target', 'labels', 'locations', 'lat', 'lon']:
+                for k in cleaning:
                     if k in t.keys():
                         del t[k]
     return figure
