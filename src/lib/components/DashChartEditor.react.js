@@ -62,7 +62,10 @@ class DashChartEditor extends Component {
     updateOptions = ({data, layout, frames}) => {
         data.map((d) => {
             if ('transforms' in d) {
-                if (!TRANSFORMABLE_TRACES.includes(d.type)) {
+                if (
+                    !TRANSFORMABLE_TRACES.includes(d.type) ||
+                    d.type === 'candlestick'
+                ) {
                     const newTransforms = [];
                     d.transforms.map((t) => {
                         if (
