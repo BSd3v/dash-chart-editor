@@ -2,7 +2,6 @@ import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import {PanelMenuWrapper} from 'react-chart-editor/lib/components';
 import {
-    GraphCreatePanel,
     GraphSubplotsPanel,
     StyleLayoutPanel,
     StyleAxesPanel,
@@ -17,6 +16,7 @@ import {
     StyleUpdateMenusPanel,
 } from 'react-chart-editor/lib/default_panels';
 import CustomGraphTransformsPanel from './CustomGraphTransformsPanel';
+import CustomGraphCreatePanel from './CustomGraphCreatePanel';
 import {traceHasColorbar} from 'react-chart-editor/lib/default_panels/StyleColorbarsPanel';
 import CustomLogo from './CustomLogo';
 import {
@@ -95,7 +95,7 @@ class ChartEditor extends Component {
             const returning = [];
             if (this.props.structureOptions === true) {
                 returning.push(
-                    <GraphCreatePanel
+                    <CustomGraphCreatePanel
                         group={_('Structure')}
                         name={_('Traces')}
                     />
@@ -117,7 +117,7 @@ class ChartEditor extends Component {
                     this.buildPanels(
                         this.props.structureOptions,
                         'traces',
-                        <GraphCreatePanel
+                        <CustomGraphCreatePanel
                             group={_('Structure')}
                             name={_('Traces')}
                         />
