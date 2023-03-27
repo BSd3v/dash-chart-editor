@@ -8,7 +8,7 @@ In this example, it's a scatter, so the `xsrc` and `ysrc` are required.
   - `ysrc` – Sets the source reference on dash-chart-editor for y.
 
 Be sure to include the correct source reference for the figure type.
-E.g., for pie, it’s `labelssrc` and `valuesrc`.  For maps, it’s `locationsrc` and `xsrc`.
+E.g., for pie, it’s `labelssrc` and `valuessrc`.  For maps, it’s `locationssrc` and `zsrc`, or `latsrc`, `lonsrc`, etc.
 See the Plotly reference docs for more information. https://plotly.github.io/plotly.py-docs/plotly.graph_objects.html
 """
 
