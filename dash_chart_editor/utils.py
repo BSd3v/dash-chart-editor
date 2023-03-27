@@ -296,6 +296,7 @@ def parseChartKeys_fig(chart, df, figureArgs={}):
                 figureArgs[arg] = chart[arg]
             elif arg+'src' not in chart and arg in chart and arg not in ['meta']:
                 figureArgs[arg.replace('src', '')] = df[chart[arg]]
+                figureArgs[arg] = chart[arg]
         return dropInvalidFigure(realChart, figureArgs, chart['type'].title())
 
 def makeSubplots(layout):
