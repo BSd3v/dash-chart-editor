@@ -31,7 +31,10 @@ class CustomTransformAccordion extends Component {
         const transformTypes = [];
 
         tempTransformTypes.map((opt) => {
-            if (TRANSFORMABLE_TRACES.includes(container.type)) {
+            if (
+                TRANSFORMABLE_TRACES.includes(container.type) &&
+                !(container.type === 'candlestick')
+            ) {
                 transformTypes.push(opt);
             } else if (
                 opt.type === 'filter' ||
@@ -170,28 +173,29 @@ class CustomTransformAccordion extends Component {
                                     ' transforms allow you to filter data out from a trace.'
                                 )}
                             </p>
-                            {TRANSFORMABLE_TRACES.includes(container.type) && (
-                                <div>
-                                    <p>
-                                        <strong>{_('Split')}</strong>{' '}
-                                        {_(
-                                            ' transforms allow you to create multiple traces from one source trace, so as to style them differently.'
-                                        )}
-                                    </p>
-                                    <p>
-                                        <strong>{_('Aggregate')}</strong>{' '}
-                                        {_(
-                                            ' transforms allow you to summarize a trace using an aggregate function like "average" or "minimum".'
-                                        )}
-                                    </p>
-                                    <p>
-                                        <strong>{_('Sort')}</strong>{' '}
-                                        {_(
-                                            ' transforms allow you to sort a trace, so as to control marker overlay or line connection order.'
-                                        )}
-                                    </p>
-                                </div>
-                            )}
+                            {TRANSFORMABLE_TRACES.includes(container.type) &&
+                                !(container.type === 'candlestick') && (
+                                    <div>
+                                        <p>
+                                            <strong>{_('Split')}</strong>{' '}
+                                            {_(
+                                                ' transforms allow you to create multiple traces from one source trace, so as to style them differently.'
+                                            )}
+                                        </p>
+                                        <p>
+                                            <strong>{_('Aggregate')}</strong>{' '}
+                                            {_(
+                                                ' transforms allow you to summarize a trace using an aggregate function like "average" or "minimum".'
+                                            )}
+                                        </p>
+                                        <p>
+                                            <strong>{_('Sort')}</strong>{' '}
+                                            {_(
+                                                ' transforms allow you to sort a trace, so as to control marker overlay or line connection order.'
+                                            )}
+                                        </p>
+                                    </div>
+                                )}
                             {SPLIT_ALLOWED.includes(container.type) && (
                                 <div>
                                     <p>
