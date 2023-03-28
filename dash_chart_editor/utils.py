@@ -297,44 +297,15 @@ def parseChartKeys_fig(chart, df, figureArgs={}):
             elif arg+'src' not in chart and arg in chart and arg not in ['meta']:
                 figureArgs[arg.replace('src', '')] = df[chart[arg]]
                 figureArgs[arg] = chart[arg]
+        figureArgs['skip_invalid'] = True
         return dropInvalidFigure(realChart, figureArgs, chart['type'].title())
-
-def makeSubplots(layout):
-    xcount = 0
-    xdomains = []
-    ycount = 0
-    ydomains = []
-    xspecs = []
-    yspecs = []
-    for l in layout:
-        if 'axis' in l:
-            if 'xaxis' in l:
-
-                if 'domain' in layout[l]:
-                    if layout[l]['domain'] not in xdomains:
-                        xdomains.append(layout[l]['domain'])
-                        xcount += 1
-                else:
-                    if xcount < 1:
-                        xcount = 1
-            elif 'yaxis' in l:
-                if 'domain' in layout[l]:
-                    if layout[l]['domain'] not in ydomains:
-                        ydomains.append(layout[l]['domain'])
-                        ycount += 1
-                else:
-                    if ycount < 1:
-                        ycount = 1
-    # print(layout)
-    # print(ycount, xcount)
-    return make_subplots(rows=ycount, cols=xcount)
 
 def chartToPython(figure, df):
     try:
         data = json.loads(figure)['data']
     except:
         data = figure['data']
-    fig = makeSubplots(figure['layout'])
+    fig = go.Figure()
     returnstring = ''
     for chart in data:
         dff = df.copy()
@@ -430,8 +401,16 @@ def chartToPython(figure, df):
         else:
             newchart = parseChartKeys_fig(chart, dff)
             fig.add_trace(newchart)
-    fig.update_layout(template='none')
-    fig = dropInvalidLayout(figure['layout'], fig)
+    for k in figure['layout']:
+        try:
+            if 'overlaying' in figure['layout'][k]:
+                if not figure['layout'][k]['overlaying']:
+                    figure['layout'][k]['overlaying'] = 'free'
+        except:
+            pass
+    fig['layout'] = figure['layout']
+    if 'template' not in figure['layout']:
+        fig.update_layout(template='none')
     return fig
 
 def cleanDataFromFigure(figure):
