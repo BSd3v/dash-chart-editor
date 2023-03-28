@@ -21,7 +21,16 @@ $ pip install -r requirements.txt
 $ pip install -r /tests/requirements.txt
 $ npm ci
 
+# build
 $ npm run build  
+
+# install in editable mode
+$ pip install -e .
+```
+To run the examples
+
+```
+$ pip install -r /examples/requirements.txt
 ```
 Then run the demo apps in the `/examples` folder
 
