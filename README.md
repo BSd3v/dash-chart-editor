@@ -54,6 +54,8 @@ See more demo apps in the `/examples` folder
 
 - [change_datasets.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/change_datasets.py) - An example showing loading different datasets in a dropdown
 
+- [display_dce_figure_in_dccGraph.py]() - This app shows how to save a figure edited in `dash-chart-editor` and using
+it in a different part of a dashboard - in this case it's displayed in a `dcc.Graph()`.
 
 ### Contributing
 
@@ -124,6 +126,10 @@ Access this documentation in your Python terminal with:
    
 - logoStyle (dict; optional):
     Style object of the Logo.
+    
+- saveState (boolean; default True):
+     When passed True, this will save the current state of the grid to `figure`.
+ 
    
 - structureOptions (dict; default True):
     Options that drive the available options under the "Structure"
