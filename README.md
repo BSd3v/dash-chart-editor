@@ -10,32 +10,27 @@ To build locally see the [Contributing Guide](https://github.com/BSd3v/dash-char
 
 ### Demo and Quickstart
 
-
-![chart-editor-quickstart](https://user-images.githubusercontent.com/72614349/227724301-e5b23a7b-3f23-423a-bebd-a88ba47dbb7c.gif)
+![chart-editor-quickstart](https://user-images.githubusercontent.com/72614349/228352185-77700687-764b-424b-9384-83ca87c6050d.gif)
 
 
 
 ```python
 import dash_chart_editor as dce
 from dash import Dash, html
-import plotly.express as px
+import pandas as pd
 
-
+df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/solar.csv')
 app = Dash(__name__, external_scripts=["https://cdn.plot.ly/plotly-2.18.2.min.js"])
 
-df = px.data.gapminder()
 
 app.layout = html.Div([
-    html.H4("Dash Chart Editor Demo with the Plotly Gapminder dataset"),
-    dce.DashChartEditor(
-        dataSources=df.to_dict("list"),
-    )
+    html.H4("Dash Chart Editor Demo with the Plotly Solar dataset"),
+    dce.DashChartEditor(dataSources=df.to_dict("list")),
 ])
 
 
 if __name__ == "__main__":
     app.run_server(debug=True)
-
 
 ```
 
@@ -43,21 +38,22 @@ if __name__ == "__main__":
 
 See more demo apps in the `/examples` folder
 
-- `quickstart.py`  The quickstart app shown above.    
+- [quickstart.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/quickstart.py)  The quickstart app shown above.    
 
-- `figure_templates.py` - A demo on how to use plotly figure templates with the chart editor.   
+- [figure_templates.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/figure_templates.py) - A demo on how to use plotly figure templates with the chart editor.   
 
-- `figure_templates_dbc` -  A demo of Bootstrap themed figure templates from the [Dash Bootstrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library.    
+- [figure_templates_dbc.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/figure_templates_dbc.py) -  A demo of Bootstrap themed figure templates from the [Dash Bootstrap Templates](https://github.com/AnnMarieW/dash-bootstrap-templates) library.    
 
-- `customize.py` - Example of ways to customize DashChartEditor
+- [customize.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/customize.py) - Example of ways to customize DashChartEditor
   - add a logo with `logoSrc`
   - only allow certain figure types with `traceOptions`
   - set graph mode bar menu with `config`.  See all the options https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js.  
   
-- `default_figure.py` - Shows how to add a default figure to use when the app starts.
+- [default_figure.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/default_figure.py) - Shows how to add a default figure to use when the app starts.
  
 
-- `change_datasets.py` - An example showing loading different datasets in a dropdown
+- [change_datasets.py](https://github.com/BSd3v/dash-chart-editor/blob/dev/examples/change_datasets.py) - An example showing loading different datasets in a dropdown
+
 
 ### Contributing
 
