@@ -20,6 +20,13 @@
         "returns": null
       },
       {
+        "name": "saveState",
+        "docblock": null,
+        "modifiers": [],
+        "params": [],
+        "returns": null
+      },
+      {
         "name": "updateOptions",
         "docblock": null,
         "modifiers": [],
@@ -50,30 +57,6 @@
         "required": false,
         "description": "Input dataSources for driving the chart editors selections"
       },
-      "data": {
-        "type": {
-          "name": "arrayOf",
-          "value": {
-            "name": "object"
-          }
-        },
-        "required": false,
-        "description": "Output data of the chart editor"
-      },
-      "layout": {
-        "type": {
-          "name": "object"
-        },
-        "required": false,
-        "description": "Output layout of the chart editor"
-      },
-      "frames": {
-        "type": {
-          "name": "array"
-        },
-        "required": false,
-        "description": "Output frames of the chart editor"
-      },
       "figure": {
         "type": {
           "name": "exact",
@@ -83,14 +66,17 @@
               "value": {
                 "name": "object"
               },
+              "description": "Output data of the chart editor",
               "required": false
             },
             "layout": {
               "name": "object",
+              "description": "Output layout of the chart editor",
               "required": false
             },
             "frames": {
               "name": "array",
+              "description": "Output frames of the chart editor",
               "required": false
             }
           }
@@ -290,6 +276,17 @@
         },
         "required": false,
         "description": "List of trace options to display"
+      },
+      "saveState": {
+        "type": {
+          "name": "bool"
+        },
+        "required": false,
+        "description": "When passed True, this will save the current state of the grid to `figure`",
+        "defaultValue": {
+          "value": "true",
+          "computed": false
+        }
       },
       "setProps": {
         "type": {

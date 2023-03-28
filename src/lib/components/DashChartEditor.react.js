@@ -59,6 +59,26 @@ class DashChartEditor extends Component {
         }
     }
 
+    saveState() {
+        const {data, layout, frames} = this.state;
+        let newFrames;
+        if (frames) {
+            newFrames = JSON.parse(JSON.stringify(frames));
+        } else {
+            newFrames = [];
+        }
+        const newData = JSON.parse(JSON.stringify(data));
+        const newLayout = JSON.parse(JSON.stringify(layout));
+        this.props.setProps({
+            figure: {
+                data: newData,
+                layout: newLayout,
+                frames: newFrames,
+            },
+            saveState: false,
+        });
+    }
+
     updateOptions = ({data, layout, frames}) => {
         data.map((d) => {
             if ('transforms' in d) {
@@ -84,12 +104,6 @@ class DashChartEditor extends Component {
                 }
             }
         });
-        let newFrames;
-        if (frames) {
-            newFrames = JSON.parse(JSON.stringify(frames));
-        } else {
-            newFrames = [];
-        }
 
         if (layout.xaxis) {
             if (!('title' in layout.xaxis) && data[0].xsrc) {
@@ -129,26 +143,19 @@ class DashChartEditor extends Component {
 
         data.map(setTitles);
 
-        const newData = JSON.parse(JSON.stringify(data));
-        const newLayout = JSON.parse(JSON.stringify(layout));
-        this.props.setProps({
-            data: newData,
-            layout: newLayout,
-            frames: newFrames,
-            figure: JSON.parse(
-                JSON.stringify({
-                    data: newData,
-                    layout: newLayout,
-                    frames: newFrames,
-                })
-            ),
-        });
         this.setState({data, layout, frames});
     };
 
     render() {
-        const {id, style, dataSources, loadFigure, config, ...restProps} =
-            this.props;
+        const {
+            id,
+            style,
+            dataSources,
+            loadFigure,
+            saveState,
+            config,
+            ...restProps
+        } = this.props;
 
         const dataSourceOptions = Object.keys(dataSources).map((name) => ({
             value: name,
@@ -157,6 +164,10 @@ class DashChartEditor extends Component {
 
         if (loadFigure) {
             this.loadFigure(loadFigure);
+        }
+
+        if (saveState) {
+            this.saveState();
         }
 
         return (
@@ -202,6 +213,7 @@ DashChartEditor.defaultProps = {
     annotateOptions: true,
     controlOptions: true,
     style: {width: '100%', height: '100%'},
+    saveState: true,
 };
 
 DashChartEditor.propTypes = {
@@ -216,26 +228,22 @@ DashChartEditor.propTypes = {
     dataSources: PropTypes.objectOf(PropTypes.array),
 
     /**
-     * Output data of the chart editor
-     */
-    data: PropTypes.arrayOf(PropTypes.object),
-
-    /**
-     * Output layout of the chart editor
-     */
-    layout: PropTypes.object,
-
-    /**
-     * Output frames of the chart editor
-     */
-    frames: PropTypes.array,
-
-    /**
      * Output figure of the chart editor (dcc.Graph esk output)
      */
     figure: PropTypes.exact({
+        /**
+         * Output data of the chart editor
+         */
         data: PropTypes.arrayOf(PropTypes.object),
+
+        /**
+         * Output layout of the chart editor
+         */
         layout: PropTypes.object,
+
+        /**
+         * Output frames of the chart editor
+         */
         frames: PropTypes.array,
     }),
 
@@ -322,6 +330,11 @@ DashChartEditor.propTypes = {
      * List of trace options to display
      */
     traceOptions: PropTypes.any,
+
+    /**
+     * When passed True, this will save the current state of the grid to `figure`
+     */
+    saveState: PropTypes.bool,
 
     /**
      * Dash-assigned callback that gets fired when the input changes
