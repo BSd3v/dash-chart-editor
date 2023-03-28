@@ -38,9 +38,6 @@ Keyword arguments:
 
     - sliders (boolean; optional)
 
-- data (list of dicts; optional):
-    Output data of the chart editor.
-
 - dataSources (dict with strings as keys and values of type list; optional):
     Input dataSources for driving the chart editors selections.
 
@@ -49,17 +46,14 @@ Keyword arguments:
 
     `figure` is a dict with keys:
 
-    - data (list of dicts; optional)
+    - data (list of dicts; optional):
+        Output data of the chart editor.
 
-    - frames (list; optional)
+    - frames (list; optional):
+        Output frames of the chart editor.
 
-    - layout (dict; optional)
-
-- frames (list; optional):
-    Output frames of the chart editor.
-
-- layout (dict; optional):
-    Output layout of the chart editor.
+    - layout (dict; optional):
+        Output layout of the chart editor.
 
 - loadFigure (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     {data, layout, frames} given to the chart, used to populate
@@ -70,6 +64,10 @@ Keyword arguments:
 
 - logoStyle (dict; optional):
     Style object of the Logo.
+
+- saveState (boolean; default True):
+    When passed True, this will save the current state of the grid to
+    `figure`.
 
 - structureOptions (dict; default True):
     Options that drive the available options under the \"Structure\"
@@ -110,10 +108,10 @@ Keyword arguments:
     _namespace = 'dash_chart_editor'
     _type = 'DashChartEditor'
     @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, dataSources=Component.UNDEFINED, data=Component.UNDEFINED, layout=Component.UNDEFINED, frames=Component.UNDEFINED, figure=Component.UNDEFINED, style=Component.UNDEFINED, config=Component.UNDEFINED, loadFigure=Component.UNDEFINED, logoSrc=Component.UNDEFINED, logoStyle=Component.UNDEFINED, structureOptions=Component.UNDEFINED, styleOptions=Component.UNDEFINED, annotateOptions=Component.UNDEFINED, controlOptions=Component.UNDEFINED, traceOptions=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'figure', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
+    def __init__(self, id=Component.UNDEFINED, dataSources=Component.UNDEFINED, figure=Component.UNDEFINED, style=Component.UNDEFINED, config=Component.UNDEFINED, loadFigure=Component.UNDEFINED, logoSrc=Component.UNDEFINED, logoStyle=Component.UNDEFINED, structureOptions=Component.UNDEFINED, styleOptions=Component.UNDEFINED, annotateOptions=Component.UNDEFINED, controlOptions=Component.UNDEFINED, traceOptions=Component.UNDEFINED, saveState=Component.UNDEFINED, **kwargs):
+        self._prop_names = ['id', 'annotateOptions', 'config', 'controlOptions', 'dataSources', 'figure', 'loadFigure', 'logoSrc', 'logoStyle', 'saveState', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'annotateOptions', 'config', 'controlOptions', 'data', 'dataSources', 'figure', 'frames', 'layout', 'loadFigure', 'logoSrc', 'logoStyle', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
+        self.available_properties = ['id', 'annotateOptions', 'config', 'controlOptions', 'dataSources', 'figure', 'loadFigure', 'logoSrc', 'logoStyle', 'saveState', 'structureOptions', 'style', 'styleOptions', 'traceOptions']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
