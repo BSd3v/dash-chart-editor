@@ -222,7 +222,7 @@ def dropInvalidLayout(layout, fig):
     failed = True
     while failed:
         try:
-            fig.update_layout(**layout)
+            fig['layout'] = layout
             failed = False
         except Exception as e:
             if 'Invalid property specified for object of type ' in str(e):
@@ -408,7 +408,7 @@ def chartToPython(figure, df):
                     figure['layout'][k]['overlaying'] = 'free'
         except:
             pass
-    fig['layout'] = figure['layout']
+    fig = dropInvalidLayout(figure['layout'], fig)
     if 'template' not in figure['layout']:
         fig.update_layout(template='none')
     return fig
