@@ -42,12 +42,13 @@ app.layout = html.Div([
 
 @app.callback(
     Output('output','figure'),
-    Input('test', 'figure'),
+    Input('test', 'figure'), Input('test', 'layout'),
 )
-def outputData(figure):
+def outputData(figure, l):
     if figure:
         # cleaning data output for unnecessary columns
         figure = dce.cleanDataFromFigure(figure)
+        print(figure['data'])
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
             fig = dce.chartToPython(figure, df)
