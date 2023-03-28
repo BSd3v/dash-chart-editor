@@ -90,6 +90,7 @@ class DashChartEditor extends Component {
         } else {
             newFrames = [];
         }
+
         if (layout.xaxis) {
             if (!('title' in layout.xaxis) && data[0].xsrc) {
                 layout.xaxis.title = {text: data[0].xsrc};
@@ -100,6 +101,34 @@ class DashChartEditor extends Component {
                 layout.yaxis.title = {text: data[0].ysrc};
             }
         }
+
+        const setTitles = (info) => {
+            if ('xaxis' in info) {
+                if (layout['xaxis' + info.xaxis.split('x')[1]]) {
+                    if (
+                        !('title' in layout['xaxis' + info.xaxis.split('x')[1]])
+                    ) {
+                        layout['xaxis' + info.xaxis.split('x')[1]].title = {
+                            text: info.xsrc,
+                        };
+                    }
+                }
+            }
+            if ('yaxis' in info) {
+                if (layout['yaxis' + info.yaxis.split('y')[1]]) {
+                    if (
+                        !('title' in layout['yaxis' + info.yaxis.split('y')[1]])
+                    ) {
+                        layout['yaxis' + info.yaxis.split('y')[1]].title = {
+                            text: info.ysrc,
+                        };
+                    }
+                }
+            }
+        };
+
+        data.map(setTitles);
+
         const newData = JSON.parse(JSON.stringify(data));
         const newLayout = JSON.parse(JSON.stringify(layout));
         this.props.setProps({

@@ -2,9 +2,12 @@ import dash_chart_editor as dce
 from dash import Dash, callback, html, Input, Output, dcc, no_update
 import traceback
 import yfinance as yf
+import plotly.express as px
 
 app = Dash(__name__,
            external_scripts=['https://cdn.plot.ly/plotly-2.18.2.min.js'])
+
+# df = px.data.iris()
 
 df = yf.download('AAPL', period="5d", interval="5m", prepost=True)
 
@@ -33,18 +36,19 @@ app.layout = html.Div([
                 ]
                 }
     ),
-    html.Button(id='reset', children='resetting'),
+    # html.Button(id='reset', children='resetting'),
     dcc.Graph(id='output')
 ])
 
 @app.callback(
     Output('output','figure'),
-    Input('test', 'figure'),
+    Input('test', 'figure'), Input('test', 'layout'),
 )
-def outputData(figure):
+def outputData(figure, l):
     if figure:
         # cleaning data output for unnecessary columns
         figure = dce.cleanDataFromFigure(figure)
+        print(figure['data'])
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
             fig = dce.chartToPython(figure, df)
@@ -52,13 +56,13 @@ def outputData(figure):
         except:
             print(traceback.format_exc())
             pass
-        return no_update
+    return no_update
 
-@app.callback(Output('test', 'loadFigure'),
-              Input('reset', 'n_clicks'))
-def reset(n):
-    if n:
-        return fig
+# @app.callback(Output('test', 'loadFigure'),
+#               Input('reset', 'n_clicks'))
+# def reset(n):
+#     if n:
+#         return fig
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 {
   "name": "dash_chart_editor",
-  "version": "0.0.1rc1",
+  "version": "0.0.1a3",
   "description": "Dash wrapper for Plotly's react-chart-editor",
 "repository": {
     "type": "git",

@@ -2,7 +2,7 @@
 name = "DashChartEditor"
 uuid = "1b08a953-4be3-4667-9a23-2c6c70c14341"
 authors = ["Bryan Schroeder <bryan.ri.schroeder@gmail.com>"]
-version = "0.0.1rc1"
+version = "0.0.1a3"
 
 [deps]
 Dash = "1b08a953-4be3-4667-9a23-3db579824955"
