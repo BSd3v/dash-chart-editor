@@ -36,19 +36,18 @@ app.layout = html.Div([
                 ]
                 }
     ),
-    # html.Button(id='reset', children='resetting'),
+    html.Button(id='save', children='saving'),
     dcc.Graph(id='output')
 ])
 
 @app.callback(
     Output('output','figure'),
-    Input('test', 'figure'), Input('test', 'layout'),
+    Input('test', 'figure'),
 )
-def outputData(figure, l):
+def outputData(figure):
     if figure:
         # cleaning data output for unnecessary columns
         figure = dce.cleanDataFromFigure(figure)
-        print(figure['data'])
         try:
             #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
             fig = dce.chartToPython(figure, df)
@@ -58,11 +57,11 @@ def outputData(figure, l):
             pass
     return no_update
 
-# @app.callback(Output('test', 'loadFigure'),
-#               Input('reset', 'n_clicks'))
-# def reset(n):
-#     if n:
-#         return fig
+@app.callback(Output('test', 'saveState'),
+              Input('save', 'n_clicks'))
+def reset(n):
+    if n:
+        return True
 
 
 if __name__ == '__main__':

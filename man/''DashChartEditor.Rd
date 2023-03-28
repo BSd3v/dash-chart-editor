@@ -11,10 +11,10 @@
 
 \usage{
 ''DashChartEditor(id=NULL, annotateOptions=NULL, config=NULL,
-controlOptions=NULL, data=NULL, dataSources=NULL,
-figure=NULL, frames=NULL, layout=NULL, loadFigure=NULL,
-logoSrc=NULL, logoStyle=NULL, structureOptions=NULL,
-style=NULL, styleOptions=NULL, traceOptions=NULL)
+controlOptions=NULL, dataSources=NULL, figure=NULL,
+loadFigure=NULL, logoSrc=NULL, logoStyle=NULL,
+saveState=NULL, structureOptions=NULL, style=NULL,
+styleOptions=NULL, traceOptions=NULL)
 }
 
 \arguments{
@@ -33,25 +33,21 @@ those elements have the following types:
   - sliders (logical; optional)
   - menus (logical; optional). Options that drive the available options under the "Control" tree}
 
-\item{data}{List of named lists. Output data of the chart editor}
-
 \item{dataSources}{List with named elements and values of type unnamed list. Input dataSources for driving the chart editors selections}
 
 \item{figure}{Lists containing elements 'data', 'layout', 'frames'.
 those elements have the following types:
-  - data (list of named lists; optional)
-  - layout (named list; optional)
-  - frames (unnamed list; optional). Output figure of the chart editor (dcc.Graph esk output)}
-
-\item{frames}{Unnamed list. Output frames of the chart editor}
-
-\item{layout}{Named list. Output layout of the chart editor}
+  - data (list of named lists; optional): output data of the chart editor
+  - layout (named list; optional): output layout of the chart editor
+  - frames (unnamed list; optional): output frames of the chart editor. Output figure of the chart editor (dcc.Graph esk output)}
 
 \item{loadFigure}{List with named elements and values of type logical | numeric | character | named list | unnamed list. {data, layout, frames} given to the chart, used to populate selections and chart when loading}
 
 \item{logoSrc}{Character. Logo that will be displayed in the chart editor}
 
 \item{logoStyle}{Named list. Style object of the Logo}
+
+\item{saveState}{Logical. When passed True, this will save the current state of the grid to `figure`}
 
 \item{structureOptions}{Logical | lists containing elements 'traces', 'subplots', 'transforms'.
 those elements have the following types:
