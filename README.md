@@ -57,6 +57,8 @@ See more demo apps in the `/examples` folder
 - [display_dce_figure_in_dccGraph.py]() - This app shows how to save a figure edited in `dash-chart-editor` and using
 it in a different part of a dashboard - in this case it's displayed in a `dcc.Graph()`.
 
+- [three_figure_demo.py]() - This demos how to use a dash-chart-editor in a model to update three different figures in an app.
+
 ### Contributing
 
 We welcome contributions to dash-chart-editor. If you find a bug or something is unclear please submit a bug report, if you have ideas for new features please feel free to make a feature request.
