@@ -6,7 +6,6 @@ This demos saving the figure edited in dash-chart-editor and displaying the figu
 import dash_chart_editor as dce
 from dash import Dash, html, dcc, Input, Output, no_update
 import pandas as pd
-import plotly.express as px
 import dash_bootstrap_components as dbc
 
 df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/solar.csv')
@@ -20,7 +19,6 @@ chart_editor =  dbc.Card(
         dce.DashChartEditor(
         id="chart-editor",
         dataSources=df.to_dict("list"),
-        loadFigure=px.bar(df, x="State", y="Number of Solar Plants"),
         )
 )
 
