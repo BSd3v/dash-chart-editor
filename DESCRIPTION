@@ -1,6 +1,6 @@
 Package: dashChartEditor
 Title: Dash wrapper for Plotly's react-chart-editor
-Version: 0.0.1a3
+Version: 0.0.1a4
 Description: Dash wrapper for Plotly's react-chart-editor
 Depends: R (>= 3.0.2)
 Imports: 

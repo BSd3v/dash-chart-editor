@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import PlotlyEditor from 'react-chart-editor';
 import 'react-chart-editor/lib/react-chart-editor.css';
 import ChartEditor from '../building_blocks/ChartEditor.react';
+import '../building_blocks/chart-styling.css';
 import {TRANSFORMABLE_TRACES} from 'react-chart-editor/lib/lib/constants';
 import {omit} from 'ramda';
 import {

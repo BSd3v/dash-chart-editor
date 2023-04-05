@@ -1,68 +1,140 @@
-import dash_chart_editor as dce
-from dash import Dash, callback, html, Input, Output, dcc, no_update
-import traceback
-import yfinance as yf
+from dash import Dash, dcc, html, Input, Output, State, MATCH, ALL, ctx, no_update, Patch
 import plotly.express as px
+import plotly.graph_objs as go
+import dash_bootstrap_components as dbc
+import dash_chart_editor as dce
 
-app = Dash(__name__,
-           external_scripts=['https://cdn.plot.ly/plotly-2.18.2.min.js'])
+df = px.data.gapminder()
 
-# df = px.data.iris()
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-df = yf.download('AAPL', period="5d", interval="5m", prepost=True)
-
-df.reset_index(inplace=True)
-
-figure = {'data': [{'type': 'candlestick', 'mode': 'markers', 'xsrc': 'Datetime', 'opensrc': 'Open', 'highsrc': 'High', 'lowsrc': 'Low', 'closesrc': 'Adj Close', 'name': 'AAPL'}, {'type': 'bar', 'orientation': 'v', 'xsrc': 'Datetime', 'ysrc': 'Volume', 'yaxis': 'y2', 'texttemplate': '', 'hovertemplate': '', 'name': 'Volume'}], 'layout': {'xaxis': {'range': ['2023-03-23 03:26:16.2544', '2023-03-23 22:20:55.0705'], 'autorange': False, 'title': {'text': 'Datetime'}, 'rangeslider': {'yaxis': {'_template': None, 'rangemode': 'match'}, 'autorange': True, 'range': ['2023-03-21 03:57:30', '2023-03-27 13:27:30'], 'yaxis2': {'_template': None, 'rangemode': 'match'}}, 'showspikes': True, 'type': 'date'}, 'yaxis': {'range': [148.26346833333335, 170.69490166666665], 'autorange': True}, 'autosize': True, 'mapbox': {'style': 'open-street-map'}, 'yaxis2': {'side': 'right', 'overlaying': 'y', 'type': 'linear', 'range': [0, 10000000], 'autorange': False, 'showgrid': False, 'zeroline': False, 'showticklabels': False}, 'dragmode': 'pan', 'hovermode': 'x', 'showlegend': False}, 'frames': []}
-
-fig = dce.chartToPython(figure, df)
-
-app.layout = html.Div([
-    dce.DashChartEditor(
-        id='test',
-        dataSources=df.to_dict('list'),
-        style={'width': '100vw', 'height': '50vh'},
-        loadFigure=fig,
-        traceOptions=['scatter', 'scattergeo', 'candlestick', 'bar'],
-        logoSrc="https://busybee.alliancebee.com/static/logo.png",
-        config={'editable': True,
-                "modeBarButtonsToAdd": [
-                    "drawline",
-                    "drawopenpath",
-                    "drawclosedpath",
-                    "drawcircle",
-                    "drawrect",
-                    "eraseshape",
+app.layout = dbc.Container(
+    [
+        dcc.Store(id='oldSum', data=0, storage_type='memory'),
+        dbc.Modal([
+            dbc.ModalTitle('Customizing Charts'),
+            dbc.ModalBody([dcc.Input(id="chartId"),dce.DashChartEditor(dataSources=df.to_dict('list'), id='editor',
+                                                                       style={'height': '60vh'})]),
+            dbc.ModalFooter([dbc.Button('Save Chart', id='saveEditor'),
+                            dbc.Button('Save & Close', id='saveCloseEditor', color='secondary')])
+        ], id='editorMenu', size='xl'),
+        dbc.Row(
+            dbc.Col(
+                [
+                    html.H3("Pattern Matching Callbacks Demo"),
+                    dbc.Button(
+                        "Add Chart", id="pattern-match-add-chart", n_clicks=0
+                    ),
+                    html.Div(id="pattern-match-container", children=[], className="mt-4"),
                 ]
-                }
-    ),
-    html.Button(id='save', children='saving'),
-    dcc.Graph(id='output')
-])
+            )
+        ),
+     ],
+    fluid=True,
+)
+
+def make_card(n_clicks):
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                [
+                    f"Figure {n_clicks + 1} ",
+                    dbc.Button(
+                        "Edit",
+                        id={"type": "dynamic-edit", "index": n_clicks},
+                        n_clicks=0,
+                        color="info",
+                    ),
+                    dbc.Button(
+                        "X",
+                        id={"type": "dynamic-delete", "index": n_clicks},
+                        n_clicks=0,
+                        color="secondary",
+                    ),
+                ],
+                className="text-end",
+            ),
+            dcc.Graph(
+                id={"type": "dynamic-output", "index": n_clicks},
+                style={"height": 400},
+                figure=go.Figure()
+            ),
+        ],
+        style={
+            "width": 400,
+            "display": "inline-block",
+        },
+        className="m-1",
+        id={"type": "dynamic-card", "index": n_clicks},
+    )
 
 @app.callback(
-    Output('output','figure'),
-    Input('test', 'figure'),
+    Output("pattern-match-container", "children"),
+    Input("pattern-match-add-chart", "n_clicks"),
 )
-def outputData(figure):
-    if figure:
-        # cleaning data output for unnecessary columns
-        figure = dce.cleanDataFromFigure(figure)
-        try:
-            #pprint(dce.chartToPython_string({'data': data, 'layout': layout, 'frames': frames}))
-            fig = dce.chartToPython(figure, df)
-            return fig
-        except:
-            print(traceback.format_exc())
-            pass
-    return no_update
+def add_card(n_clicks):
+    patched_children = Patch()
+    new_card = make_card(n_clicks)
+    patched_children.append(new_card)
+    return patched_children
 
-@app.callback(Output('test', 'saveState'),
-              Input('save', 'n_clicks'))
-def reset(n):
-    if n:
+@app.callback(
+    Output({"type": "dynamic-card", "index": MATCH}, "style"),
+    Input({"type": "dynamic-delete", "index": MATCH}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def remove_card(_):
+    return {"display": "none"}
+
+@app.callback(
+    Output("editorMenu", "is_open"), Output("editor", "loadFigure"), Output('chartId', 'value'),
+    Output('oldSum', 'data'),
+    Input({"type": "dynamic-edit", "index": ALL}, "n_clicks"),
+    State({"type": "dynamic-output", "index": ALL}, "figure"),
+    State('oldSum', 'data'),
+    prevent_initial_call=True,
+)
+def remove_card(edit, figs, oldSum):
+    if sum(edit) > 0 and sum(edit) != oldSum:
+        oldSum = sum(edit)
+        x = ctx.triggered_id['index']
+        if edit[x] > 0:
+            if figs[x]['data']:
+                return True, figs[x], x, oldSum
+            return True, {'data': [], 'layout': {}}, x, oldSum
+    return no_update, no_update, no_update, oldSum
+
+@app.callback(
+    Output('editor', 'saveState'),
+    Input('saveEditor', 'n_clicks'),
+    Input('saveCloseEditor', 'n_clicks'),
+)
+def saveChart(n, n1):
+    if n or n1:
         return True
 
+@app.callback(
+    Output("editorMenu", "is_open", allow_duplicate=True),
+    Input('saveCloseEditor', 'n_clicks'),
+    prevent_initial_call=True
+)
+def saveChart(n):
+    if n:
+        return False
+    return no_update
 
-if __name__ == '__main__':
+@app.callback(
+    Output("pattern-match-container", "children", allow_duplicate=True),
+    Input('editor', 'figure'), State('chartId', 'value'),
+    prevent_initial_call=True
+)
+def saveToFig(f, v):
+    if f:
+        print(v)
+        figs = Patch()
+        figs[v]['figure'] = f
+        return figs
+    return no_update
+
+if __name__ == "__main__":
     app.run_server(debug=True)
