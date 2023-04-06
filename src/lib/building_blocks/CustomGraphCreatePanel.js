@@ -8,7 +8,6 @@ import {
     AxesCreator,
     SubplotCreator,
     TraceAccordion,
-    TraceSelector,
     TraceTypeSection,
     LocationSelector,
     Dropzone,
@@ -20,6 +19,7 @@ import {
     Histogram2d,
 } from 'react-chart-editor/lib/components/fields/derived';
 import CustomDataSelector from './CustomDataSelector';
+import CustomTraceSelector from './CustomTraceSelector';
 
 const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
     return (
@@ -35,16 +35,52 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
             }
             canReorder
         >
-            <TraceSelector label={_('Type')} attr="type" show />
-
+            <CustomTraceSelector label={_('Type')} attr="type" show />
             <Dropzone attr="geojson" fileType="geojson" />
             <LocationSelector attr="type" />
             <CustomDataSelector label={_('Values')} attr="values" />
             <CustomDataSelector label={_('Labels')} attr="labels" />
             <CustomDataSelector label={_('Parents')} attr="parents" />
-
             <TraceTypeSection traceTypes={['sunburst', 'treemap']} mode="trace">
                 <CustomDataSelector label={_('IDs')} attr="ids" />
+            </TraceTypeSection>
+            <TraceTypeSection
+                name={_('Indicator Options')}
+                traceTypes={['indicator']}
+                mode="trace"
+            >
+                <CustomDataSelector label={_('IDs')} attr="ids" />
+                <Numeric label={_('Value')} attr="value" clearable={false} />
+                <DropdownCustom
+                    label={_('Mode')}
+                    attr="mode"
+                    options={[
+                        {label: _('number'), value: 'number'},
+                        {label: _('delta'), value: 'delta'},
+                        {label: _('number+delta'), value: 'number+delta'},
+                        {
+                            label: _('number+delta+gauge'),
+                            value: 'number+delta+gauge',
+                        },
+                        {label: _('gauge'), value: 'gauge'},
+                        {label: _('number+gauge'), value: 'number+gauge'},
+                    ]}
+                    clearable={false}
+                />
+                <Numeric
+                    label={_('Delta Reference')}
+                    attr="delta.reference"
+                    clearable={true}
+                />
+                <DropdownCustom
+                    label={_('Gauge Shape')}
+                    attr="gauge.shape"
+                    options={[
+                        {label: _('angular'), value: 'angular'},
+                        {label: _('bullet'), value: 'bullet'},
+                    ]}
+                    clearable={false}
+                />
             </TraceTypeSection>
             <Dropdown
                 label={_('Parent Value Mode')}
@@ -55,7 +91,6 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                 ]}
                 clearable={false}
             />
-
             <CustomDataSelector
                 label={{
                     histogram2d: _('X Values'),
@@ -99,7 +134,6 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                 showSlider
             />
             <CustomDataSelector label={_('Measure')} attr="measure" />
-
             <PlotlySection name={_('Nodes')}>
                 <CustomDataSelector label={_('Labels')} attr="node.label" />
                 <CustomDataSelector label={_('Groups')} attr="node.groups" />
@@ -183,10 +217,8 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                     clearable={false}
                 />
             </TraceTypeSection>
-
             <AxesCreator attr="fake_attr" />
             <SubplotCreator attr="fake_attr" />
-
             <PlotlySection name={_('Header Options')}>
                 <CustomDataSelector
                     label={_('Fill Color')}
@@ -201,7 +233,6 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                     attr="header.font.size"
                 />
             </PlotlySection>
-
             <PlotlySection name={_('Cell Options')}>
                 <CustomDataSelector
                     label={_('Fill Color')}
@@ -216,12 +247,10 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                     attr="cells.font.size"
                 />
             </PlotlySection>
-
             <PlotlySection name={_('Column Options')}>
                 <CustomDataSelector label={_('Width')} attr="columnwidth" />
                 <CustomDataSelector label={_('Order')} attr="columnorder" />
             </PlotlySection>
-
             <PlotlySection name={_('Options')}>
                 <CustomDataSelector label={_('Intensity')} attr="intensity" />
                 <CustomDataSelector label={_('Facecolor')} attr="facecolor" />

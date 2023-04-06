@@ -11,12 +11,12 @@ import {
     StyleShapesPanel,
     StyleSlidersPanel,
     StyleImagesPanel,
-    StyleTracesPanel,
     StyleColorbarsPanel,
     StyleUpdateMenusPanel,
 } from 'react-chart-editor/lib/default_panels';
 import CustomGraphTransformsPanel from './CustomGraphTransformsPanel';
 import CustomGraphCreatePanel from './CustomGraphCreatePanel';
+import CustomStyleTracesPanel from './CustomStyleTracesPanel';
 import {traceHasColorbar} from 'react-chart-editor/lib/default_panels/StyleColorbarsPanel';
 import CustomLogo from './CustomLogo';
 import {
@@ -167,7 +167,7 @@ class ChartEditor extends Component {
                     />
                 );
                 returning.push(
-                    <StyleTracesPanel
+                    <CustomStyleTracesPanel
                         group={_('Style')}
                         name={_('Traces')}
                         key={'traces_style'}
@@ -225,7 +225,7 @@ class ChartEditor extends Component {
                     this.buildPanels(
                         this.props.styleOptions,
                         'traces',
-                        <StyleTracesPanel
+                        <CustomStyleTracesPanel
                             group={_('Style')}
                             name={_('Traces')}
                             key={'traces_style'}

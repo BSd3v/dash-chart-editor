@@ -1,3 +1,7 @@
 .editor_controls .fold__top {
     min-height: 30px !important;
 }
+
+.editor_controls .numeric-input__number {
+    width: 100px !important;
+}

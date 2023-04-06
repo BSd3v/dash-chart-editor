@@ -104,6 +104,9 @@ class DashChartEditor extends Component {
                     }
                 }
             }
+            if (d.type === 'indicator' && !d.value) {
+                d.value = 0;
+            }
         });
 
         if (layout.xaxis) {

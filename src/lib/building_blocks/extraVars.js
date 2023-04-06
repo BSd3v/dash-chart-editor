@@ -43,6 +43,11 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
             category: chartCategory(_).SIMPLE,
         },
         {
+            value: 'indicator',
+            label: _('Indicator'),
+            category: chartCategory(_).SIMPLE,
+        },
+        {
             value: 'scatter3d',
             label: _('3D Scatter'),
             category: chartCategory(_).THREE_D,
@@ -268,4 +273,237 @@ export const categoryLayout = (_, chartCategory, traces) => {
     });
 
     return newCats;
+};
+
+export const computeTraceOptionsFromSchema = (schema, _, context) => {
+    // Filter out Polar "area" type as it is fairly broken and we want to present
+    // scatter with fill as an "area" chart type for convenience.
+    const traceTypes = Object.keys(schema.traces).filter(
+        (t) => !['area', 'scattermapbox'].includes(t)
+    );
+
+    var traces = [
+        {
+            value: 'scatter',
+            label: _('Scatter'),
+        },
+        {
+            value: 'bar',
+            label: _('Bar'),
+        },
+        {
+            value: 'line',
+            label: _('Line'),
+        },
+        {
+            value: 'area',
+            label: _('Area'),
+        },
+        {
+            value: 'heatmap',
+            label: _('Heatmap'),
+        },
+        {
+            value: 'table',
+            label: _('Table'),
+        },
+        {
+            value: 'contour',
+            label: _('Contour'),
+        },
+        {
+            value: 'pie',
+            label: _('Pie'),
+        },
+        {
+            value: 'scatter3d',
+            label: _('3D Scatter'),
+        },
+        {
+            value: 'line3d',
+            label: _('3D Line'),
+        },
+        {
+            value: 'surface',
+            label: _('3D Surface'),
+        },
+        {
+            value: 'mesh3d',
+            label: _('3D Mesh'),
+        },
+        {
+            value: 'cone',
+            label: _('Cone'),
+        },
+        {
+            value: 'streamtube',
+            label: _('Streamtube'),
+        },
+        {
+            value: 'box',
+            label: _('Box'),
+        },
+        {
+            value: 'violin',
+            label: _('Violin'),
+        },
+        {
+            value: 'histogram',
+            label: _('Histogram'),
+        },
+        {
+            value: 'histogram2d',
+            label: _('2D Histogram'),
+        },
+        {
+            value: 'histogram2dcontour',
+            label: _('2D Contour Histogram'),
+        },
+        {
+            value: 'scattermapbox',
+            label: _('Tile Map'),
+        },
+        {
+            value: 'scattergeo',
+            label: _('Atlas Map'),
+        },
+        {
+            value: 'choroplethmapbox',
+            label: _('Choropleth Tile Map'),
+        },
+        {
+            value: 'choropleth',
+            label: _('Choropleth Atlas Map'),
+        },
+        {
+            value: 'densitymapbox',
+            label: _('Density Tile Map'),
+        },
+        {
+            value: 'scatterpolar',
+            label: _('Polar Scatter'),
+        },
+        {
+            value: 'barpolar',
+            label: _('Polar Bar'),
+        },
+        {
+            value: 'scatterternary',
+            label: _('Ternary Scatter'),
+        },
+        {
+            value: 'sunburst',
+            label: _('Sunburst'),
+        },
+        {
+            value: 'treemap',
+            label: _('Treemap'),
+        },
+        {
+            value: 'sankey',
+            label: _('Sankey'),
+        },
+        {
+            value: 'candlestick',
+            label: _('Candlestick'),
+        },
+        {
+            value: 'ohlc',
+            label: _('OHLC'),
+        },
+        {
+            value: 'waterfall',
+            label: _('Waterfall'),
+        },
+        {
+            value: 'funnel',
+            label: _('Funnel'),
+        },
+        {
+            value: 'funnelarea',
+            label: _('Funnel Area'),
+        },
+        {
+            value: 'scattergl',
+            icon: 'scatter',
+            label: _('Scatter'),
+        },
+        {
+            value: 'scatterpolargl',
+            icon: 'scatterpolar',
+            label: _('Polar Scatter'),
+        },
+        {
+            value: 'heatmapgl',
+            icon: 'heatmap',
+            label: _('Heatmap GL'),
+        },
+        {
+            value: 'pointcloud',
+            label: _('Point Cloud'),
+        },
+        {
+            value: 'parcoords',
+            label: _('Parallel Coordinates'),
+        },
+        {
+            value: 'parcats',
+            label: _('Parallel Categories'),
+        },
+        {
+            value: 'splom',
+            label: _('Scatterplot Matrix'),
+        },
+        {
+            value: 'scattercarpet',
+            label: _('Scatter Carpet'),
+        },
+        {
+            value: 'contourcarpet',
+            label: _('Contour Carpet'),
+        },
+        {
+            value: 'carpet',
+            label: _('Carpet'),
+        },
+        {
+            value: 'isosurface',
+            label: _('Isosurface'),
+        },
+        {
+            value: 'indicator',
+            label: _('Indicator'),
+        },
+    ];
+
+    const traceOptions = traces.filter(
+        (obj) => traceTypes.indexOf(obj.value) !== -1
+    );
+
+    const traceIndex = (traceType) =>
+        traceOptions.findIndex((opt) => opt.value === traceType);
+
+    traceOptions.splice(
+        traceIndex('scatter') + 1,
+        0,
+        {label: _('Line'), value: 'line'},
+        {label: _('Area'), value: 'area'},
+        {label: _('Timeseries'), value: 'timeseries'}
+    );
+
+    traceOptions.splice(traceIndex('scatter3d') + 1, 0, {
+        label: _('3D Line'),
+        value: 'line3d',
+    });
+
+    if (context.config && context.config.mapboxAccessToken) {
+        traceOptions.push({
+            value: 'scattermapbox',
+            label: _('Satellite Map'),
+        });
+    }
+
+    console.log(traceOptions);
+
+    return traceOptions;
 };
