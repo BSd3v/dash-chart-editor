@@ -14,7 +14,7 @@ import {
 } from 'react-chart-editor/lib/components/widgets';
 import Field from 'react-chart-editor/lib/components/fields/Field';
 import {CogIcon} from 'plotly-icons';
-import computeTraceOptionsFromSchema from './extraVars';
+import {computeTraceOptionsFromSchema} from './extraVars';
 
 class TraceSelector extends Component {
     constructor(props, context) {

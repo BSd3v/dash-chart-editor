@@ -36,6 +36,7 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
             canReorder
         >
             <CustomTraceSelector label={_('Type')} attr="type" show />
+
             <Dropzone attr="geojson" fileType="geojson" />
             <LocationSelector attr="type" />
             <CustomDataSelector label={_('Values')} attr="values" />

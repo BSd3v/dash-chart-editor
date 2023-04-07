@@ -1,5 +1,9 @@
 export const SPLIT_ALLOWED = ['scattermapbox', 'scattergeo'];
 
+export const currentSchema = () => {
+    return window.Plotly.PlotSchema.get();
+};
+
 export const traceTypes = (_, chartCategory, traceOptions) => {
     var traces = [
         {

@@ -5,3 +5,47 @@
 .editor_controls .numeric-input__number {
     width: 100px !important;
 }
+
+.collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  margin-bottom: 5px;
+  width: 100%;
+  outline: none;
+  font-size: 15px;
+  border-bottom: 1px solid black;
+  text-align: left;
+}
+
+.collapsible:hover {
+  background-color: #555;
+}
+
+.collapsible:before {
+  content: '\002B';
+  color: white;
+  font-weight: bold;
+  float: left;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.collapsible.active:before {
+  content: "\2212";
+}
+
+.collapsible:not(:has(div)) {
+    display: none;
+}
+
+.collapsible > div {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  background-color: #f1f1f1;
+}
+
+.collapsible.active > div {
+    max-height: fit-content;
+}
