@@ -1,10 +1,10 @@
-"""
-This example requires dash>=2.9.2
+# """
+# This example requires dash>=2.9.2
+#
+# """
 
-"""
 
-
-from dash import Dash,  dcc, html, Input, Output, State, MATCH, ALL, ctx, no_update, Patch
+from dash import Dash, dcc, html, Input, Output, State, MATCH, ALL, ctx, no_update, Patch
 import plotly.express as px
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
@@ -14,45 +14,38 @@ df = px.data.iris()
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+chart_editor_modal = dbc.Modal(
+    [
+        dbc.ModalTitle("Customizing Charts"),
+        dbc.ModalBody(
+            [
+                dcc.Input(id="chartId"),
+                dce.DashChartEditor(
+                    dataSources=df.to_dict("list"),
+                    id="editor",
+                    style={"height": "60vh"},
+                ),
+            ]
+        ),
+        dbc.ModalFooter(
+            [
+                dbc.Button("Reset", id="resetEditor"),
+                dbc.Button("Save", id="saveEditor"),
+                dbc.Button("Save & Close", id="saveCloseEditor", color="secondary"),
+            ]
+        ),
+    ],
+    id="editorMenu",
+    size="xl",
+)
+
 app.layout = dbc.Container(
     [
         dcc.Store(id="oldSum", data=0),
-        dbc.Modal(
-            [
-                dbc.ModalTitle("Customizing Charts"),
-                dbc.ModalBody(
-                    [
-                        dcc.Input(id="chartId"),
-                        dce.DashChartEditor(
-                            dataSources=df.to_dict("list"),
-                            id="editor",
-                            style={"height": "60vh"},
-                        ),
-                    ]
-                ),
-                dbc.ModalFooter(
-                    [
-                        dbc.Button("Save Chart", id="saveEditor"),
-                        dbc.Button(
-                            "Save & Close", id="saveCloseEditor", color="secondary"
-                        ),
-                    ]
-                ),
-            ],
-            id="editorMenu",
-            size="xl",
-        ),
-        dbc.Row(
-            dbc.Col(
-                [
-                    html.H3("Pattern Matching Callbacks Demo"),
-                    dbc.Button("Add Chart", id="pattern-match-add-chart", n_clicks=0),
-                    html.Div(
-                        id="pattern-match-container", children=[], className="mt-4"
-                    ),
-                ]
-            )
-        ),
+        html.H3("Pattern Matching Callbacks Demo"),
+        dbc.Button("Add Chart", id="pattern-match-add-chart", n_clicks=0),
+        html.Div(id="pattern-match-container", children=[], className="mt-4"),
+        chart_editor_modal,
     ],
     fluid=True,
 )
@@ -106,12 +99,19 @@ def add_card(n_clicks):
 
 
 @app.callback(
-    Output({"type": "dynamic-card", "index": MATCH}, "style"),
-    Input({"type": "dynamic-delete", "index": MATCH}, "n_clicks"),
+    Output("pattern-match-container", "children", allow_duplicate=True),
+    Input({"type": "dynamic-delete", "index": ALL}, "n_clicks"),
+    State({"type": "dynamic-card", "index": ALL}, "id"),
     prevent_initial_call=True,
 )
-def remove_card(_):
-    return {"display": "none"}
+def remove_card(_, ids):
+    cards = Patch()
+    if ctx.triggered[0]["value"] > 0:
+        for i in range(len(ids)):
+            if ids[i]["index"] == ctx.triggered_id["index"]:
+                del cards[i]
+                return cards
+    return no_update
 
 
 @app.callback(
@@ -122,17 +122,37 @@ def remove_card(_):
     Input({"type": "dynamic-edit", "index": ALL}, "n_clicks"),
     State({"type": "dynamic-output", "index": ALL}, "figure"),
     State("oldSum", "data"),
+    State({"type": "dynamic-card", "index": ALL}, "id"),
     prevent_initial_call=True,
 )
-def edit_card(edit, figs, oldSum):
+def edit_card(edit, figs, oldSum, ids):
     if sum(edit) > 0 and sum(edit) != oldSum:
         oldSum = sum(edit)
-        x = ctx.triggered_id["index"]
-        if edit[x] > 0:
-            if figs[x]["data"]:
-                return True, figs[x], x, oldSum
-            return True, {"data": [], "layout": {}}, x, oldSum
+        if ctx.triggered[0]["value"] > 0:
+            for i in range(len(ids)):
+                if ids[i]["index"] == ctx.triggered_id["index"]:
+                    if figs[i]["data"]:
+                        return True, figs[i], ctx.triggered_id["index"], oldSum
+                    return (
+                        True,
+                        {"data": [], "layout": {}},
+                        ctx.triggered_id["index"],
+                        oldSum,
+                    )
     return no_update, no_update, no_update, oldSum
+
+
+@app.callback(
+    Output("editor", "loadFigure", allow_duplicate=True),
+    Input("resetEditor", "n_clicks"),
+    State({"type": "dynamic-output", "index": ALL}, "figure"),
+    State("chartId", "value"),
+    prevent_initial_call=True,
+)
+def reset_figure(reset, figs, chartId):
+    if figs[chartId]["data"]:
+        return figs[chartId]
+    return {"data": [], "layout": {}}
 
 
 @app.callback(
@@ -160,13 +180,16 @@ def close_editor(n):
     Output("pattern-match-container", "children", allow_duplicate=True),
     Input("editor", "figure"),
     State("chartId", "value"),
+    State({"type": "dynamic-card", "index": ALL}, "id"),
     prevent_initial_call=True,
 )
-def saveToFig(f, v):
+def save_to_card(f, v, ids):
     if f:
         figs = Patch()
-        figs[v]["props"]["children"][1]["props"]["figure"] = f
-        return figs
+        for i in range(len(ids)):
+            if ids[i]["index"] == v:
+                figs[i]["props"]["children"][1]["props"]["figure"] = f
+                return figs
     return no_update
 
 
