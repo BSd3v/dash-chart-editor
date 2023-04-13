@@ -49,3 +49,8 @@
 .collapsible.active > div {
     max-height: fit-content;
 }
+
+.editor_controls .trace-grid {
+    overflow-y: auto;
+    max-height: 75vh;
+}

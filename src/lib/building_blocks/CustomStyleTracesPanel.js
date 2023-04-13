@@ -31,6 +31,7 @@ import {
     MarkerSize,
     MarkerColor,
     MultiColorPicker,
+    ColorPicker,
     ErrorBars,
     DataSelector,
     VisibilitySelect,
@@ -108,6 +109,10 @@ function buildOptions(schema) {
                     'transforms',
                     'selected',
                     'unselected',
+                    'uid',
+                    'contours',
+                    'line',
+                    'colorbar',
                 ].includes(test) &&
                 !structureAttrs.includes(test) &&
                 !styleAttrs.includes(test) &&
@@ -159,13 +164,27 @@ function buildOptions(schema) {
                     } else {
                         children.push(<Numeric label={k} attr={k} key={k} />);
                     }
-                } else if (v.valType === 'any') {
+                } else if (['any', 'string'].includes(v.valType)) {
                     if (ref) {
                         refChildren[chartType + ref].push(
                             <Text label={k} attr={ref + '.' + k} key={k} />
                         );
                     } else {
                         children.push(<Text label={k} attr={k} key={k} />);
+                    }
+                } else if (v.valType === 'color') {
+                    if (ref) {
+                        refChildren[chartType + ref].push(
+                            <ColorPicker
+                                label={k}
+                                attr={ref + '.' + k}
+                                key={k}
+                            />
+                        );
+                    } else {
+                        children.push(
+                            <ColorPicker label={k} attr={k} key={k} />
+                        );
                     }
                 } else if (v.valType === 'flaglist') {
                     if (ref) {

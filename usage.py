@@ -4,13 +4,13 @@ import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
 import dash_chart_editor as dce
 
-df = px.data.gapminder()
+df = px.data.iris()
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = dbc.Container(
     [
-        dcc.Store(id='oldSum', data=0, storage_type='memory'),
+        dcc.Store(id='oldSum', data=0),
         dbc.Modal([
             dbc.ModalTitle('Customizing Charts'),
             dbc.ModalBody([dcc.Input(id="chartId"),dce.DashChartEditor(dataSources=df.to_dict('list'), id='editor',
@@ -79,12 +79,19 @@ def add_card(n_clicks):
     return patched_children
 
 @app.callback(
-    Output({"type": "dynamic-card", "index": MATCH}, "style"),
-    Input({"type": "dynamic-delete", "index": MATCH}, "n_clicks"),
+    Output("pattern-match-container", "children", allow_duplicate=True),
+    Input({"type": "dynamic-delete", "index": ALL}, "n_clicks"),
+    State({"type": "dynamic-card", "index": ALL}, 'id'),
     prevent_initial_call=True,
 )
-def remove_card(_):
-    return {"display": "none"}
+def remove_card(_, ids):
+    rem = Patch()
+    if ctx.triggered[0]['value'] > 0:
+        for i in range(len(ids)):
+            if ids[i]['index'] == ctx.triggered_id['index']:
+                del rem[i]
+                return rem
+    return no_update
 
 @app.callback(
     Output("editorMenu", "is_open"), Output("editor", "loadFigure"), Output('chartId', 'value'),
@@ -92,16 +99,18 @@ def remove_card(_):
     Input({"type": "dynamic-edit", "index": ALL}, "n_clicks"),
     State({"type": "dynamic-output", "index": ALL}, "figure"),
     State('oldSum', 'data'),
+    State({"type": "dynamic-card", "index": ALL}, 'id'),
     prevent_initial_call=True,
 )
-def remove_card(edit, figs, oldSum):
+def remove_card(edit, figs, oldSum, ids):
     if sum(edit) > 0 and sum(edit) != oldSum:
         oldSum = sum(edit)
-        x = ctx.triggered_id['index']
-        if edit[x] > 0:
-            if figs[x]['data']:
-                return True, figs[x], x, oldSum
-            return True, {'data': [], 'layout': {}}, x, oldSum
+        if ctx.triggered[0]['value'] > 0:
+            for i in range(len(ids)):
+                if ids[i]['index'] == ctx.triggered_id['index']:
+                    if figs[i]['data']:
+                        return True, figs[i], ctx.triggered_id['index'], oldSum
+                    return True, {'data': [], 'layout': {}}, ctx.triggered_id['index'], oldSum
     return no_update, no_update, no_update, oldSum
 
 @app.callback(
@@ -126,14 +135,16 @@ def saveChart(n):
 @app.callback(
     Output("pattern-match-container", "children", allow_duplicate=True),
     Input('editor', 'figure'), State('chartId', 'value'),
+    State({"type": "dynamic-card", "index": ALL}, 'id'),
     prevent_initial_call=True
 )
-def saveToFig(f, v):
+def saveToFig(f, v, ids):
     if f:
-        print(v)
         figs = Patch()
-        figs[v]['figure'] = f
-        return figs
+        for i in range(len(ids)):
+            if ids[i]['index'] == v:
+                figs[i]['props']['children'][1]['props']['figure'] = dce.chartToPython(f, df)
+                return figs
     return no_update
 
 if __name__ == "__main__":

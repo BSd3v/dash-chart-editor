@@ -280,7 +280,7 @@ def parseChartKeys_fig(chart, df, figureArgs={}):
     realChart = None
     figureArgs = figureArgs
     for i, y in getmembers(go, isclass):
-        if i == chart['type'].title():
+        if i.lower() == chart['type'].lower():
             realChart = y
             break
     if realChart:
@@ -315,8 +315,12 @@ def chartToPython(figure, df):
             chart['xaxis'] = 'x'
         if 'ysrc' in chart:
             ysrc = chart['ysrc']
+        else:
+            ysrc = None
         if 'xsrc' in chart:
             xsrc = chart['xsrc']
+        else:
+            xsrc = None
         if chart['type'] in typeDataSource:
             if 'latsrc' in chart:
                 if typeDataSource[chart['type']+'lat']['xsrc'] in chart:

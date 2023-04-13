@@ -1,10 +1,66 @@
 export const SPLIT_ALLOWED = ['scattermapbox', 'scattergeo'];
 
+function toProperCase(str) {
+    return str.replace(/\w\S*/g, function (txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    });
+}
+
 export const currentSchema = () => {
     return window.Plotly.PlotSchema.get();
 };
 
-export const traceTypes = (_, chartCategory, traceOptions) => {
+export const chartCategory = (_) => {
+    return {
+        SIMPLE: {
+            value: 'SIMPLE',
+            label: _('Simple'),
+        },
+        FINANCIAL: {
+            value: 'FINANCIAL',
+            label: _('Finance'),
+            maxColumns: 1,
+        },
+        DISTRIBUTIONS: {
+            value: 'DISTRIBUTIONS',
+            label: _('Distributions'),
+        },
+        MAPS: {
+            value: 'MAPS',
+            label: _('Maps'),
+            maxColumns: 1,
+        },
+        SPECIALIZED: {
+            value: 'SPECIALIZED',
+            label: _('Specialized'),
+            maxColumns: 1,
+        },
+        THREE_D: {
+            value: '3D',
+            label: _('3D'),
+            maxColumns: 1,
+        },
+        HIDDEN: {
+            value: 'HIDDEN',
+            label: '',
+        },
+        OTHER: {
+            value: 'OTHER',
+            label: _('OTHER'),
+        },
+    };
+};
+
+export const traceTypes = (_, traceOptions) => {
+    var dce_vars = (window.DCE_vars = window.DCE_vars || {});
+    var allTraces;
+    if (dce_vars.allTraces) {
+        allTraces = dce_vars.allTraces;
+    } else {
+        allTraces = Object.keys(currentSchema().traces);
+        dce_vars.allTraces = allTraces;
+    }
+
     var traces = [
         {
             value: 'scatter',
@@ -52,6 +108,31 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
             category: chartCategory(_).SIMPLE,
         },
         {
+            value: 'box',
+            label: _('Box'),
+            category: chartCategory(_).DISTRIBUTIONS,
+        },
+        {
+            value: 'violin',
+            label: _('Violin'),
+            category: chartCategory(_).DISTRIBUTIONS,
+        },
+        {
+            value: 'histogram',
+            label: _('Histogram'),
+            category: chartCategory(_).DISTRIBUTIONS,
+        },
+        {
+            value: 'histogram2d',
+            label: _('2D Histogram'),
+            category: chartCategory(_).DISTRIBUTIONS,
+        },
+        {
+            value: 'histogram2dcontour',
+            label: _('2D Contour Histogram'),
+            category: chartCategory(_).DISTRIBUTIONS,
+        },
+        {
             value: 'scatter3d',
             label: _('3D Scatter'),
             category: chartCategory(_).THREE_D,
@@ -82,31 +163,6 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
             category: chartCategory(_).THREE_D,
         },
         {
-            value: 'box',
-            label: _('Box'),
-            category: chartCategory(_).DISTRIBUTIONS,
-        },
-        {
-            value: 'violin',
-            label: _('Violin'),
-            category: chartCategory(_).DISTRIBUTIONS,
-        },
-        {
-            value: 'histogram',
-            label: _('Histogram'),
-            category: chartCategory(_).DISTRIBUTIONS,
-        },
-        {
-            value: 'histogram2d',
-            label: _('2D Histogram'),
-            category: chartCategory(_).DISTRIBUTIONS,
-        },
-        {
-            value: 'histogram2dcontour',
-            label: _('2D Contour Histogram'),
-            category: chartCategory(_).DISTRIBUTIONS,
-        },
-        {
             value: 'scattermapbox',
             label: _('Tile Map'),
             category: chartCategory(_).MAPS,
@@ -130,6 +186,31 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
             value: 'densitymapbox',
             label: _('Density Tile Map'),
             category: chartCategory(_).MAPS,
+        },
+        {
+            value: 'candlestick',
+            label: _('Candlestick'),
+            category: chartCategory(_).FINANCIAL,
+        },
+        {
+            value: 'ohlc',
+            label: _('OHLC'),
+            category: chartCategory(_).FINANCIAL,
+        },
+        {
+            value: 'waterfall',
+            label: _('Waterfall'),
+            category: chartCategory(_).FINANCIAL,
+        },
+        {
+            value: 'funnel',
+            label: _('Funnel'),
+            category: chartCategory(_).FINANCIAL,
+        },
+        {
+            value: 'funnelarea',
+            label: _('Funnel Area'),
+            category: chartCategory(_).FINANCIAL,
         },
         {
             value: 'scatterpolar',
@@ -160,31 +241,6 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
             value: 'sankey',
             label: _('Sankey'),
             category: chartCategory(_).SPECIALIZED,
-        },
-        {
-            value: 'candlestick',
-            label: _('Candlestick'),
-            category: chartCategory(_).FINANCIAL,
-        },
-        {
-            value: 'ohlc',
-            label: _('OHLC'),
-            category: chartCategory(_).FINANCIAL,
-        },
-        {
-            value: 'waterfall',
-            label: _('Waterfall'),
-            category: chartCategory(_).FINANCIAL,
-        },
-        {
-            value: 'funnel',
-            label: _('Funnel'),
-            category: chartCategory(_).FINANCIAL,
-        },
-        {
-            value: 'funnelarea',
-            label: _('Funnel Area'),
-            category: chartCategory(_).FINANCIAL,
         },
         {
             value: 'scattergl',
@@ -246,37 +302,40 @@ export const traceTypes = (_, chartCategory, traceOptions) => {
         },
     ];
 
+    traces.map((v) => {
+        if (allTraces.includes(v.value)) {
+            allTraces.splice(allTraces.indexOf(v.value), 1);
+        }
+    });
+
+    allTraces.map((v) =>
+        traces.push({
+            value: v,
+            label: _(toProperCase(v)),
+            category: chartCategory(_).OTHER,
+        })
+    );
+
     if (traceOptions) {
         return traces.filter((v) => traceOptions.includes(v.value));
     }
     return traces;
 };
 
-export const categoryLayout = (_, chartCategory, traces) => {
-    var categories = [
-        chartCategory(_).SIMPLE,
-        chartCategory(_).DISTRIBUTIONS,
-        chartCategory(_).THREE_D,
-        chartCategory(_).MAPS,
-        chartCategory(_).FINANCIAL,
-        chartCategory(_).SPECIALIZED,
-    ];
-
+export const categoryLayout = (_, traces) => {
     var catsMapped = [];
+    var categories = [];
     traces(_).map((t) => {
-        if (!catsMapped.includes(t.category.value)) {
+        if (
+            !catsMapped.includes(t.category.value) &&
+            t.category.value !== 'HIDDEN'
+        ) {
             catsMapped.push(t.category.value);
+            categories.push(t.category);
         }
     });
 
-    var newCats = [];
-    categories.map((v) => {
-        if (catsMapped.includes(v.value)) {
-            newCats.push(v);
-        }
-    });
-
-    return newCats;
+    return categories;
 };
 
 export const computeTraceOptionsFromSchema = (schema, _, context) => {

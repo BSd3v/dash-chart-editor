@@ -12,7 +12,6 @@ import {
     traceTypes,
     categoryLayout,
 } from '../building_blocks/extraVars';
-import {chartCategory} from 'react-chart-editor/lib/lib/traceTypes';
 
 class DashChartEditor extends Component {
     constructor(props) {
@@ -30,13 +29,9 @@ class DashChartEditor extends Component {
         };
 
         this.state.traceTypesConfig.traces = (_) =>
-            traceTypes(_, chartCategory, this.props.traceOptions);
+            traceTypes(_, this.props.traceOptions);
         this.state.traceTypesConfig.categories = (_) =>
-            categoryLayout(
-                _,
-                chartCategory,
-                this.state.traceTypesConfig.traces
-            );
+            categoryLayout(_, this.state.traceTypesConfig.traces);
 
         this.updateOptions = this.updateOptions.bind(this);
     }
@@ -103,9 +98,6 @@ class DashChartEditor extends Component {
                         delete d.transforms;
                     }
                 }
-            }
-            if (d.type === 'indicator' && !d.value) {
-                d.value = 0;
             }
         });
 

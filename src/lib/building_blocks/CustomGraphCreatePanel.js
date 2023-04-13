@@ -46,12 +46,30 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                 <CustomDataSelector label={_('IDs')} attr="ids" />
             </TraceTypeSection>
             <TraceTypeSection
+                name={_('Image Options')}
+                traceTypes={['image']}
+                mode="trace"
+            >
+                <Dropzone attr="source" fileType="image" show />
+                <Numeric label={_('Image Width')} attr="dx" clearable={false} />
+                <Numeric
+                    label={_('Image Height')}
+                    attr="dy"
+                    clearable={false}
+                />
+            </TraceTypeSection>
+            <TraceTypeSection
                 name={_('Indicator Options')}
                 traceTypes={['indicator']}
                 mode="trace"
             >
                 <CustomDataSelector label={_('IDs')} attr="ids" />
-                <Numeric label={_('Value')} attr="value" clearable={false} />
+                <Numeric
+                    label={_('Value')}
+                    attr="value"
+                    clearable={false}
+                    show
+                />
                 <DropdownCustom
                     label={_('Mode')}
                     attr="mode"
