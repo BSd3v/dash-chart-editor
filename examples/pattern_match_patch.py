@@ -126,7 +126,9 @@ def remove_card(_, ids):
     prevent_initial_call=True,
 )
 def edit_card(edit, figs, oldSum, ids):
-    if sum(edit) > 0 and sum(edit) != oldSum:
+    if sum(edit) < oldSum:
+        oldSum = sum(edit)
+    if sum(edit) > 0 and sum(edit) > oldSum:
         oldSum = sum(edit)
         if ctx.triggered[0]["value"] > 0:
             for i in range(len(ids)):
@@ -147,11 +149,14 @@ def edit_card(edit, figs, oldSum, ids):
     Input("resetEditor", "n_clicks"),
     State({"type": "dynamic-output", "index": ALL}, "figure"),
     State("chartId", "value"),
+    State({"type": "dynamic-card", "index": ALL}, "id"),
     prevent_initial_call=True,
 )
-def reset_figure(reset, figs, chartId):
-    if figs[chartId]["data"]:
-        return figs[chartId]
+def reset_figure(reset, figs, chartId, ids):
+    for i in range(len(ids)):
+        if ids[i]["index"] == chartId:
+            if figs[i]["data"]:
+                return figs[i]
     return {"data": [], "layout": {}}
 
 
