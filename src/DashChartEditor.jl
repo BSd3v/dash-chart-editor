@@ -15,20 +15,6 @@ function __init__()
             version = version,
             [
                 DashBase.Resource(
-    relative_package_path = "async-DashChartEditor.js",
-    external_url = "https://unpkg.com/dash_chart_editor@0.0.1a4/dash_chart_editor/async-DashChartEditor.js",
-    dynamic = nothing,
-    async = :true,
-    type = :js
-),
-DashBase.Resource(
-    relative_package_path = "async-DashChartEditor.js.map",
-    external_url = "https://unpkg.com/dash_chart_editor@0.0.1a4/dash_chart_editor/async-DashChartEditor.js.map",
-    dynamic = true,
-    async = nothing,
-    type = :js
-),
-DashBase.Resource(
     relative_package_path = "dash_chart_editor.min.js",
     external_url = "https://unpkg.com/dash_chart_editor@0.0.1a4/dash_chart_editor/dash_chart_editor.min.js",
     dynamic = nothing,

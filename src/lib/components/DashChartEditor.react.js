@@ -99,6 +99,9 @@ class DashChartEditor extends Component {
                     }
                 }
             }
+            if (d.type === 'image') {
+                layout.yaxis.autorange = 'reversed';
+            }
         });
 
         if (layout.xaxis) {

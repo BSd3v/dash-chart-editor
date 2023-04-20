@@ -20,8 +20,39 @@ import {
 } from 'react-chart-editor/lib/components/fields/derived';
 import CustomDataSelector from './CustomDataSelector';
 import CustomTraceSelector from './CustomTraceSelector';
+import CustomDropdown from './CustomDropdown';
 
 const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
+    const sum = (array) => array.reduce((a, b) => a + b, 0);
+    const cnt = (array) => array.length;
+    const average = (array) => sum(array) / cnt(array);
+    /* eslint-disable */
+    const calcAttribute = (e, props = {}) => {
+        if (!props.container.value_agg) {
+            props.updateContainer({
+                value: cnt(props.container.valuesrc),
+                value_agg: 'count',
+            });
+        } else {
+            switch (props.container.value_agg) {
+                case 'sum':
+                    props.updateContainer({
+                        value: sum(props.container.valuesrc),
+                    });
+                    break;
+                case 'average':
+                    props.updateContainer({
+                        value: average(props.container.valuesrc),
+                    });
+                    break;
+                default:
+                    props.updateContainer({
+                        value: cnt(props.container.valuesrc),
+                    });
+            }
+        }
+    };
+    /* eslint-enable */
     return (
         <TraceAccordion
             canAdd
@@ -45,6 +76,9 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
             <TraceTypeSection traceTypes={['sunburst', 'treemap']} mode="trace">
                 <CustomDataSelector label={_('IDs')} attr="ids" />
             </TraceTypeSection>
+            <TraceTypeSection traceTypes={['volume']} mode="trace">
+                <CustomDataSelector label={_('Value')} attr="value" />
+            </TraceTypeSection>
             <TraceTypeSection
                 name={_('Image Options')}
                 traceTypes={['image']}
@@ -63,7 +97,25 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                 traceTypes={['indicator']}
                 mode="trace"
             >
-                <CustomDataSelector label={_('IDs')} attr="ids" />
+                <CustomDataSelector
+                    label="Value Src"
+                    attr="valuesrc"
+                    onChange={calcAttribute}
+                    show
+                />
+                <CustomDropdown
+                    label={_('Value Src Aggregate')}
+                    attr="value_agg"
+                    options={[
+                        {label: _('count'), value: 'count'},
+                        {label: _('sum'), value: 'sum'},
+                        {label: _('average'), value: 'average'},
+                    ]}
+                    clearable={false}
+                    defaultOpt="count"
+                    onChange={calcAttribute}
+                    show
+                />
                 <Numeric
                     label={_('Value')}
                     attr="value"

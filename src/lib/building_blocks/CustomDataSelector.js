@@ -144,7 +144,12 @@ export class UnconnectedDataSelector extends Component {
                 <DropdownWidget
                     options={this.dataSourceOptions}
                     value={this.fullValue}
-                    onChange={this.updatePlot}
+                    onChange={(e) => {
+                        this.updatePlot(e);
+                        if (this.props.onChange) {
+                            this.props.onChange(e, this.props);
+                        }
+                    }}
                     multi={false} // disabling due to this causing issues when transitioning to python
                     searchable={true}
                     clearable={true}

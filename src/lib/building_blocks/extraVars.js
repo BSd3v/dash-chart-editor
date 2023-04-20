@@ -42,11 +42,11 @@ export const chartCategory = (_) => {
         },
         HIDDEN: {
             value: 'HIDDEN',
-            label: '',
+            label: 'Hidden',
         },
         OTHER: {
             value: 'OTHER',
-            label: _('OTHER'),
+            label: _('Other'),
         },
     };
 };
@@ -262,42 +262,6 @@ export const traceTypes = (_, traceOptions) => {
         },
         {
             value: 'pointcloud',
-            label: _('Point Cloud'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'parcoords',
-            label: _('Parallel Coordinates'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'parcats',
-            label: _('Parallel Categories'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'splom',
-            label: _('Scatterplot Matrix'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'scattercarpet',
-            label: _('Scatter Carpet'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'contourcarpet',
-            label: _('Contour Carpet'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'carpet',
-            label: _('Carpet'),
-            category: chartCategory(_).HIDDEN,
-        },
-        {
-            value: 'isosurface',
-            label: _('Isosurface'),
             category: chartCategory(_).HIDDEN,
         },
     ];
@@ -565,8 +529,6 @@ export const computeTraceOptionsFromSchema = (schema, _, context) => {
             label: _('Satellite Map'),
         });
     }
-
-    console.log(traceOptions);
 
     return traceOptions;
 };

@@ -54,3 +54,25 @@
     overflow-y: auto;
     max-height: 75vh;
 }
+
+.editor_controls .trace-grid__column:not(:first-of-type)::before {
+    border-left: none;
+}
+
+.editor_controls .trace-grid__column {
+    border-right: var(--border-light);
+    border-bottom: var(--border-light);
+}
+
+.editor_controls .trace-grid {
+    border-top: var(--border-light);
+    overflow-x: hidden;
+}
+
+.editor_controls .trace-grid__column__header {
+    border-top: none;
+}
+
+.plotly_editor_plot {
+    overflow-x: hidden;
+}
