@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import React, {Component} from 'react';
 import Field from 'react-chart-editor/lib/components/fields/Field';
 import nestedProperty from 'plotly.js/src/lib/nested_property';
+import {nestedTest} from './extraVars.js';
 import {
     connectToContainer,
     maybeAdjustSrc,
@@ -127,6 +128,7 @@ export class UnconnectedDataSelector extends Component {
 
     render() {
         const {label} = this.props;
+
         let newLabel;
         if (typeof label === 'object') {
             const traceType = this.props.container.type;
@@ -139,29 +141,33 @@ export class UnconnectedDataSelector extends Component {
             newLabel = label;
         }
 
+        const style = nestedTest(this.props);
+
         return (
-            <Field {...{...this.props, label: newLabel}}>
-                <DropdownWidget
-                    options={this.dataSourceOptions}
-                    value={this.fullValue}
-                    onChange={(e) => {
-                        this.updatePlot(e);
-                        if (this.props.onChange) {
-                            this.props.onChange(e, this.props);
+            <div style={style}>
+                <Field {...{...this.props, label: newLabel}}>
+                    <DropdownWidget
+                        options={this.dataSourceOptions}
+                        value={this.fullValue}
+                        onChange={(e) => {
+                            this.updatePlot(e);
+                            if (this.props.onChange) {
+                                this.props.onChange(e, this.props);
+                            }
+                        }}
+                        multi={false} // disabling due to this causing issues when transitioning to python
+                        searchable={true}
+                        clearable={true}
+                        placeholder={
+                            this.hasData
+                                ? 'Data inlined in figure'
+                                : 'Choose data...'
                         }
-                    }}
-                    multi={false} // disabling due to this causing issues when transitioning to python
-                    searchable={true}
-                    clearable={true}
-                    placeholder={
-                        this.hasData
-                            ? 'Data inlined in figure'
-                            : 'Choose data...'
-                    }
-                    disabled={this.dataSourceOptions.length === 0}
-                    components={this.props.dataSourceComponents}
-                />
-            </Field>
+                        disabled={this.dataSourceOptions.length === 0}
+                        components={this.props.dataSourceComponents}
+                    />
+                </Field>
+            </div>
         );
     }
 }

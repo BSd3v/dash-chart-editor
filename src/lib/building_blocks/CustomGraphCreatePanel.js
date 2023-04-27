@@ -28,30 +28,31 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
     const average = (array) => sum(array) / cnt(array);
     /* eslint-disable */
     const calcAttribute = (e, props = {}) => {
-        if (!props.container.value_agg) {
-            props.updateContainer({
-                value: cnt(props.container.valuesrc),
-                value_agg: 'count',
-            });
+        const target = props['target'];
+        const agg = props.container[props['agg']];
+        const src = props.container[props['src']];
+        const propsToSet = {};
+        if (!target) {
+            return;
+        }
+        if (!agg) {
+            propsToSet[target] = cnt(src);
+            propsToSet[agg] = 'count';
         } else {
-            switch (props.container.value_agg) {
+            switch (agg) {
                 case 'sum':
-                    props.updateContainer({
-                        value: sum(props.container.valuesrc),
-                    });
+                    propsToSet[target] = sum(src);
                     break;
                 case 'average':
-                    props.updateContainer({
-                        value: average(props.container.valuesrc),
-                    });
+                    propsToSet[target] = average(src);
                     break;
                 default:
-                    props.updateContainer({
-                        value: cnt(props.container.valuesrc),
-                    });
+                    propsToSet[target] = cnt(src);
             }
         }
+        props.updateContainer(propsToSet);
     };
+
     /* eslint-enable */
     return (
         <TraceAccordion
@@ -97,31 +98,6 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                 traceTypes={['indicator']}
                 mode="trace"
             >
-                <CustomDataSelector
-                    label="Value Src"
-                    attr="valuesrc"
-                    onChange={calcAttribute}
-                    show
-                />
-                <CustomDropdown
-                    label={_('Value Src Aggregate')}
-                    attr="value_agg"
-                    options={[
-                        {label: _('count'), value: 'count'},
-                        {label: _('sum'), value: 'sum'},
-                        {label: _('average'), value: 'average'},
-                    ]}
-                    clearable={false}
-                    defaultOpt="count"
-                    onChange={calcAttribute}
-                    show
-                />
-                <Numeric
-                    label={_('Value')}
-                    attr="value"
-                    clearable={false}
-                    show
-                />
                 <DropdownCustom
                     label={_('Mode')}
                     attr="mode"
@@ -138,20 +114,122 @@ const CustomGraphCreatePanel = (props, {localize: _, setPanel}) => {
                     ]}
                     clearable={false}
                 />
-                <Numeric
-                    label={_('Delta Reference')}
-                    attr="delta.reference"
-                    clearable={true}
-                />
-                <DropdownCustom
-                    label={_('Gauge Shape')}
-                    attr="gauge.shape"
-                    options={[
-                        {label: _('angular'), value: 'angular'},
-                        {label: _('bullet'), value: 'bullet'},
-                    ]}
-                    clearable={false}
-                />
+                <PlotlySection attr="value">
+                    <CustomDataSelector
+                        label="Value Src"
+                        attr="valuesrc"
+                        onChange={calcAttribute}
+                        target="value"
+                        agg="value_agg"
+                        src="valuesrc"
+                        show
+                        bypass={true}
+                    />
+                    <CustomDropdown
+                        label={_('Value Src Aggregate')}
+                        attr="value_agg"
+                        options={[
+                            {label: _('count'), value: 'count'},
+                            {label: _('sum'), value: 'sum'},
+                            {label: _('average'), value: 'average'},
+                        ]}
+                        clearable={false}
+                        defaultOpt="count"
+                        onChange={calcAttribute}
+                        target="value"
+                        agg="value_agg"
+                        src="valuesrc"
+                        show
+                        bypass={true}
+                    />
+                    <Numeric
+                        label={_('Value')}
+                        attr="value"
+                        clearable={true}
+                        show
+                    />
+                </PlotlySection>
+                <PlotlySection name={_('Delta')} attr="delta">
+                    <CustomDataSelector
+                        label="Delta Src"
+                        attr="deltareferencesrc"
+                        onChange={calcAttribute}
+                        target="delta.reference"
+                        agg="deltareferencesrc_agg"
+                        src="deltareferencesrc"
+                        test="delta"
+                        parent="mode"
+                        show
+                    />
+                    <CustomDropdown
+                        label={_('Delta Src Aggregate')}
+                        attr="deltareferencesrc_agg"
+                        options={[
+                            {label: _('count'), value: 'count'},
+                            {label: _('sum'), value: 'sum'},
+                            {label: _('average'), value: 'average'},
+                        ]}
+                        clearable={false}
+                        defaultOpt="count"
+                        onChange={calcAttribute}
+                        target="delta.reference"
+                        agg="deltareferencesrc_agg"
+                        src="deltareferencesrc"
+                        test="delta"
+                        parent="mode"
+                        show
+                    />
+                    <Numeric
+                        label={_('Delta Reference')}
+                        attr="delta.reference"
+                        clearable={true}
+                    />
+                </PlotlySection>
+                <PlotlySection name={_('Gauge')} attr="gauge">
+                    <CustomDataSelector
+                        label="Gauge Src"
+                        attr="gaugevaluesrc"
+                        onChange={calcAttribute}
+                        target="gauge.threshold.value"
+                        agg="gaugevaluesrc_agg"
+                        src="gaugevaluesrc"
+                        test="gauge"
+                        parent="mode"
+                        show
+                    />
+                    <CustomDropdown
+                        label={_('Gauge Src Aggregate')}
+                        attr="gaugevaluesrc_agg"
+                        options={[
+                            {label: _('count'), value: 'count'},
+                            {label: _('sum'), value: 'sum'},
+                            {label: _('average'), value: 'average'},
+                        ]}
+                        clearable={false}
+                        defaultOpt="count"
+                        onChange={calcAttribute}
+                        target="gauge.threshold.value"
+                        agg="gaugevaluesrc_agg"
+                        src="gaugevaluesrc"
+                        test="gauge"
+                        parent="mode"
+                        show
+                    />
+                    <DropdownCustom
+                        label={_('Gauge Shape')}
+                        attr="gauge.shape"
+                        options={[
+                            {label: _('angular'), value: 'angular'},
+                            {label: _('bullet'), value: 'bullet'},
+                        ]}
+                        clearable={false}
+                    />
+                    <Numeric
+                        label={_('Gauge Value')}
+                        attr="gauge.threshold.value"
+                        clearable={true}
+                    />
+                </PlotlySection>
             </TraceTypeSection>
             <Dropdown
                 label={_('Parent Value Mode')}

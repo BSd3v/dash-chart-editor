@@ -532,3 +532,25 @@ export const computeTraceOptionsFromSchema = (schema, _, context) => {
 
     return traceOptions;
 };
+
+export const nestedTest = (props) => {
+    var style = {};
+    if (props.test && !props.bypass) {
+        style = {display: 'none'};
+
+        try {
+            if (props.parent) {
+                if (props.container[props.parent].includes(props.test)) {
+                    style = {};
+                }
+            } else {
+                if (Object.keys(props.container).includes(props.test)) {
+                    style = {};
+                }
+            }
+        } catch {
+            style = {display: 'none'};
+        }
+    }
+    return style;
+};

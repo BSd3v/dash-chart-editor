@@ -7,6 +7,7 @@ export const structureAttrs = [
     'value',
     'delta.reference',
     'gauge.shape',
+    'gauge.threshold.value',
     'radius',
     'x',
     'y',

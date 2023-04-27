@@ -76,3 +76,7 @@
 .plotly_editor_plot {
     overflow-x: hidden;
 }
+
+.editor_controls .section:has(>div[style*="display: none"]) {
+    display: none;
+}

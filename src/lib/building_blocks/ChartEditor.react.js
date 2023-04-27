@@ -2,7 +2,6 @@ import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import {PanelMenuWrapper} from 'react-chart-editor/lib/components';
 import {
-    GraphSubplotsPanel,
     StyleLayoutPanel,
     StyleAxesPanel,
     StyleMapsPanel,
@@ -23,6 +22,7 @@ import {
     TRANSFORMABLE_TRACES,
     TRACE_TO_AXIS,
 } from 'react-chart-editor/lib/lib/constants';
+import CustomGraphSubplotsPanel from './CustomGraphSubplotsPanel';
 
 class ChartEditor extends Component {
     constructor(props, context) {
@@ -102,7 +102,7 @@ class ChartEditor extends Component {
                     />
                 );
                 returning.push(
-                    <GraphSubplotsPanel
+                    <CustomGraphSubplotsPanel
                         group={_('Structure')}
                         name={_('Subplots')}
                         key={'subplots'}
@@ -131,7 +131,7 @@ class ChartEditor extends Component {
                     this.buildPanels(
                         this.props.structureOptions,
                         'subplots',
-                        <GraphSubplotsPanel
+                        <CustomGraphSubplotsPanel
                             group={_('Structure')}
                             name={_('Subplots')}
                             key={'subplots'}
