@@ -3,3 +3,4 @@
 # pip install -r requirements.txt
 
 dash[dev,testing]>=1.15.0
+setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
