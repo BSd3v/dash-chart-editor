@@ -15,7 +15,6 @@ import {
     PlotlySection,
     LayoutSection,
     SymbolSelector,
-    TraceAccordion,
     TraceTypeSection,
     TraceMarkerSection,
     ColorscalePicker,
@@ -55,6 +54,7 @@ import {
     styleSpecialAttrs,
     styleAttrs,
 } from './traceConstructor';
+import CustomTraceAccordion from './CustomTraceAccordion';
 
 const convertedPropCache = {};
 
@@ -223,7 +223,7 @@ const StyleTracesPanel = (props, {localize: _}) => {
     const allOpts = memoizeOne(buildOptions(schema), 'allOpts');
 
     return (
-        <TraceAccordion canGroup>
+        <CustomTraceAccordion canGroup>
             <TextEditor label={_('Name')} attr="name" richTextOnly />
             <NumericFraction label={_('Trace Opacity')} attr="opacity" />
             <TraceTypeSection
@@ -1402,7 +1402,7 @@ const StyleTracesPanel = (props, {localize: _}) => {
                 <ErrorBars attr="error_z" />
             </PlotlySection>
             {allOpts}
-        </TraceAccordion>
+        </CustomTraceAccordion>
     );
 };
 
