@@ -2,4 +2,9 @@
 # Switch into a virtual environment
 # pip install -r requirements.txt
 
-dash[dev,testing]>=1.15.0
+dash>=2.15.0
+dash-core-components>=2.0.0 # not directly required, pinned by Snyk to avoid a vulnerability
+dash-html-components>=2.0.0 # not directly required, pinned by Snyk to avoid a vulnerability
+flask>=2.2.5 # not directly required, pinned by Snyk to avoid a vulnerability
+jinja2>=3.1.4 # not directly required, pinned by Snyk to avoid a vulnerability
+werkzeug>=2.2.3 # not directly required, pinned by Snyk to avoid a vulnerability
