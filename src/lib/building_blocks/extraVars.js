@@ -1,4 +1,4 @@
-export const SPLIT_ALLOWED = ['scattermap', 'scattergeo'];
+export const SPLIT_ALLOWED = ['scattermapbox', 'scattergeo'];
 
 function toProperCase(str) {
     return str.replace(/\w\S*/g, function (txt) {
@@ -163,7 +163,7 @@ export const traceTypes = (_, traceOptions) => {
             category: chartCategory(_).THREE_D,
         },
         {
-            value: 'scattermap',
+            value: 'scattermapbox',
             label: _('Tile Map'),
             category: chartCategory(_).MAPS,
         },
@@ -306,7 +306,7 @@ export const computeTraceOptionsFromSchema = (schema, _, context) => {
     // Filter out Polar "area" type as it is fairly broken and we want to present
     // scatter with fill as an "area" chart type for convenience.
     const traceTypes = Object.keys(schema.traces).filter(
-        (t) => !['area', 'scattermap'].includes(t)
+        (t) => !['area', 'scattermapbox'].includes(t)
     );
 
     var traces = [
@@ -387,7 +387,7 @@ export const computeTraceOptionsFromSchema = (schema, _, context) => {
             label: _('2D Contour Histogram'),
         },
         {
-            value: 'scattermap',
+            value: 'scattermapbox',
             label: _('Tile Map'),
         },
         {
@@ -525,7 +525,7 @@ export const computeTraceOptionsFromSchema = (schema, _, context) => {
 
     if (context.config && context.config.mapboxAccessToken) {
         traceOptions.push({
-            value: 'scattermap',
+            value: 'scattermapbox',
             label: _('Satellite Map'),
         });
     }
