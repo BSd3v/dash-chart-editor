@@ -87,7 +87,7 @@ class DashChartEditor extends Component {
                         if (
                             t.type === 'filter' ||
                             (SPLIT_ALLOWED.includes(d.type) &&
-                                t.type === 'groupby')
+                                t.type === 'groupby') || t.type == 'aggregate'
                         ) {
                             newTransforms.push(t);
                         }
@@ -102,15 +102,21 @@ class DashChartEditor extends Component {
             if (d.type === 'image') {
                 layout.yaxis.autorange = 'reversed';
             }
+            if (['scattermap', 'scattermapbox'].includes(d.type)) {
+                d['cluster'] = {
+                    'enabled': false,
+                    'maxzoom': 24
+                }
+            }
         });
 
         if (layout.xaxis) {
-            if (!('title' in layout.xaxis) && data[0].xsrc) {
+            if (!('title' in layout.xaxis) && data[0]?.xsrc) {
                 layout.xaxis.title = {text: data[0].xsrc};
             }
         }
         if (layout.yaxis) {
-            if (!('title' in layout.yaxis) && data[0].ysrc) {
+            if (!('title' in layout.yaxis) && data[0]?.ysrc) {
                 layout.yaxis.title = {text: data[0].ysrc};
             }
         }
@@ -143,6 +149,7 @@ class DashChartEditor extends Component {
         data.map(setTitles);
 
         this.setState({data, layout, frames});
+        this.saveState()
     };
 
     render() {

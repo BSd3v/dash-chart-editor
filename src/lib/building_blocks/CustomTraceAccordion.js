@@ -40,6 +40,8 @@ class TraceAccordion extends Component {
                     ? t
                     : context.fullData.filter((tr) => tr.index === i)[0];
 
+                fullTrace['transforms'] = t['transforms']
+
                 if (fullTrace) {
                     const trace = context.data[fullTrace.index];
                     if (traceFilterCondition(trace, fullTrace)) {

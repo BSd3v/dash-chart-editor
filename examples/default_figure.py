@@ -31,7 +31,7 @@ default_fig = px.scatter(
     color="continent",
     log_x=True,
     size_max=60,
-    template="plotly_dark",
+    template="plotly_white",
 )
 
 default_fig["data"][0]["xsrc"] = "gpdPercap"

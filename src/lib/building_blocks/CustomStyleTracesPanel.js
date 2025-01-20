@@ -208,6 +208,32 @@ function buildOptions(schema) {
                             />
                         );
                     }
+                } else if (v.valType === 'boolean') {
+                    if (ref) {
+                        refChildren[chartType + ref].push(
+                            <Radio
+                                label={k}
+                                attr={ref + '.' + k}
+                                key={k}
+                                options={[
+                                    {label: 'On', value: true},
+                                    {label: 'Off', value: false},
+                                ]}
+                            />
+                        );
+                    } else {
+                        children.push(
+                            <Radio
+                                label={k}
+                                attr={k}
+                                key={k}
+                                options={[
+                                    {label: 'On', value: true},
+                                    {label: 'Off', value: false},
+                                ]}
+                            />
+                        );
+                    }
                 }
             }
         }

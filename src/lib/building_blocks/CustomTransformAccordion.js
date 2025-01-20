@@ -14,12 +14,13 @@ const TransformFold = connectTransformToTrace(PlotlyFold);
 class CustomTransformAccordion extends Component {
     render() {
         const {
-            fullContainer: {transforms = []},
+            fullContainer: {oldTransforms = []},
             localize: _,
             container,
             dataSourceOptions,
         } = this.context;
         const {children} = this.props;
+        const transforms = container.transforms || oldTransforms
 
         const tempTransformTypes = [
             {label: _('Filter'), type: 'filter'},
@@ -30,6 +31,8 @@ class CustomTransformAccordion extends Component {
 
         const transformTypes = [];
 
+        console.log(transforms)
+
         tempTransformTypes.map((opt) => {
             if (
                 TRANSFORMABLE_TRACES.includes(container.type) &&
@@ -39,7 +42,8 @@ class CustomTransformAccordion extends Component {
             } else if (
                 opt.type === 'filter' ||
                 (SPLIT_ALLOWED.includes(container.type) &&
-                    opt.type === 'groupby')
+                    opt.type === 'groupby') ||
+                    opt.type === 'aggregate'
             ) {
                 transformTypes.push(opt);
             }
@@ -138,21 +142,28 @@ class CustomTransformAccordion extends Component {
                             )
                                 ? fullContainer.transforms.length
                                 : 0;
+                            if (!fullContainer.transforms) {fullContainer.transforms = []}
                             const key = `transforms[${transformIndex}]`;
 
                             const payload = {type};
                             if (type === 'filter') {
                                 payload.target = [];
                                 payload.targetsrc = null;
-                            } else if (type !== 'sort') {
+                                payload.value = ''
+                                payload.operation = '!='
+                            }
+                            else if (type === 'groupby') {
+                                payload.styles = [];
                                 payload.groupssrc = null;
                                 payload.groups = null;
                             }
-
-                            if (type === 'groupby') {
-                                payload.styles = [];
+                            else if (type === 'aggregate') {
+                                payload.aggregations = [
+                                    {target: 'y', enabled: true, func: 'first'}
+                                ]
                             }
-
+                            payload.enabled = true;
+                            fullContainer.transforms[transformIndex] = payload
                             updateContainer({[key]: payload});
                         }
                     },
@@ -173,6 +184,12 @@ class CustomTransformAccordion extends Component {
                                     ' transforms allow you to filter data out from a trace.'
                                 )}
                             </p>
+                            <p>
+                                <strong>{_('Aggregate')}</strong>{' '}
+                                {_(
+                                    ' transforms allow you to summarize a trace using an aggregate function like "average" or "minimum".'
+                                )}
+                            </p>
                             {TRANSFORMABLE_TRACES.includes(container.type) &&
                                 !(container.type === 'candlestick') && (
                                     <div>
@@ -180,12 +197,6 @@ class CustomTransformAccordion extends Component {
                                             <strong>{_('Split')}</strong>{' '}
                                             {_(
                                                 ' transforms allow you to create multiple traces from one source trace, so as to style them differently.'
-                                            )}
-                                        </p>
-                                        <p>
-                                            <strong>{_('Aggregate')}</strong>{' '}
-                                            {_(
-                                                ' transforms allow you to summarize a trace using an aggregate function like "average" or "minimum".'
                                             )}
                                         </p>
                                         <p>
@@ -204,6 +215,7 @@ class CustomTransformAccordion extends Component {
                                             ' transforms allow you to create multiple traces from one source trace, so as to style them differently.'
                                         )}
                                     </p>
+
                                 </div>
                             )}
                         </div>

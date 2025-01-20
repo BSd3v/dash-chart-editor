@@ -88,47 +88,46 @@ typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'},
                   }
 
 def filter(t, df, returnstring, ysrc, xsrc):
+    df = df.fillna('')
     try:
-        v = ''
-        op = '='
-        if 'value' in t:
-            if t['value']:
-                v = t['value']
-                if 'operation' in t:
-                    op = t['operation']
-        else:
-            if 'operation' in t:
-                op = t['operation']
-        if t['targetsrc']:
-            if isinstance(v, list):
-                v = pd.Series(v).astype(df[t['targetsrc']].dtype)
-            else:
-                if v:
-                    v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
+        if t['enabled']:
+            v = t.get('value', '')
+            op = t.get('operation', '=')
+            if t['targetsrc']:
+                if isinstance(v, list):
+                    v = pd.Series(v).astype(df[t['targetsrc']].dtype)
                 else:
-                    v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
-            if op in inRngOperators or op in exRngOperators:
-                if len(v) > 1:
-                    v1 = v.iat[0]
-                    v2 = v.iat[1]
+                    if v:
+                        v = pd.Series([v]).astype(df[t['targetsrc']].dtype)
+                    else:
+                        v = pd.Series([None]).astype(df[t['targetsrc']].dtype)
+                if op in inRngOperators or op in exRngOperators:
+                    if len(v) > 1:
+                        v1 = v.iat[0]
+                        v2 = v.iat[1]
+                    else:
+                        v1 = v.iat[0]
+                        v2 = v.iat[0]
+                elif op in operators:
+                    v = v.iat[0]
                 else:
-                    v1 = v.iat[0]
-                    v2 = v.iat[0]
-            elif op in operators:
-                v = v.iat[0]
-            else:
-                v = v.tolist()
-            if op in operators:
-                df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
-            elif op in inRngOperators:
-                df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
-            elif op in exRngOperators:
-                df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
-            else:
-                if op == '{}':
-                    df = df.loc[df[t['targetsrc']].isin(v)]
-                elif op == '}{':
-                    df = df.loc[~df[t['targetsrc']].isin(v)]
+                    v = v.tolist()
+                if v is None:
+                    v = ''
+                if op in operators:
+                    ## needs inverse for operators as inequality
+                    print(op)
+                    print(t['targetsrc'])
+                    df = df.loc[~getattr(df[t['targetsrc']], operators[op])(v)]
+                elif op in inRngOperators:
+                    df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
+                elif op in exRngOperators:
+                    df = df.loc[~df[t['targetsrc']].between(v1, v2, **exRngOperators[op])]
+                else:
+                    if op == '{}':
+                        df = df.loc[df[t['targetsrc']].isin(v)]
+                    elif op == '}{':
+                        df = df.loc[~df[t['targetsrc']].isin(v)]
     except:
         df = pd.DataFrame(columns=df.columns)
         print(traceback.format_exc())
@@ -148,10 +147,10 @@ figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length"
                      "annotations": [{"text": "new text", "x": 5.899517356599221, "y": 3.0389957939011567}]},
           "frames": []}
 
-
 def parseTransforms(transforms, returnstring, ysrc, xsrc, df=pd.DataFrame()):
     sorts = []
-    for y in ['filter', 'sort', 'aggregate']:
+    # only do filters, everything else is handled by the transforms
+    for y in ['filter']:
         for t in transforms:
             if t['type'] == y:
                 if 'enabled' in t:
@@ -250,22 +249,25 @@ def dropInvalidLayout(layout, fig):
 def dropInvalidFigure(chart, args, type):
     failed = True
     fig = go.Scatter()
+    newDict = args
+    newDict['arg'] = {}
     while failed:
         try:
-            fig = chart(**args)
+            fig = chart(**newDict)
             failed = False
         except Exception as e:
+            print('failed')
+            print(str(e))
             if 'Invalid property specified for object of type ' in str(e):
                 path = str(e).split('plotly.graph_objs.'+type+'.')[1].split(':')[0].split('.')
                 key = str(e).split("'")[1]
-                newDict = args
                 x = 0
                 try:
 
                     while x < len(path):
                         newDict = newDict[camelcaseSnake(path[x])]
                         x += 1
-
+                    newDict['arg'][key] = newDict[key]
                     del newDict[key]
                 except:
                     print(traceback.format_exc())
@@ -276,9 +278,30 @@ def dropInvalidFigure(chart, args, type):
                 failed = False
     return fig
 
-def parseChartKeys_fig(chart, df, figureArgs={}):
+
+def aggregate_value(arg, chart, df):
+    key = arg[:-3] + '_agg'
+    if 'value' in arg[:5]:
+        key = arg.replace('src', '') + '_agg'
+
+    if key in chart:
+        aggregation_type = chart[key]
+        col = chart[arg]
+
+        if aggregation_type == 'sum':
+            aggregated_value = df[col].sum()
+        elif aggregation_type == 'average':
+            aggregated_value = df[col].mean()
+        elif aggregation_type == 'count':
+            aggregated_value = df[col].count()
+        else:
+            raise ValueError("Unsupported aggregation type")
+
+        return aggregated_value
+
+def parseChartKeys_fig(chart, df):
+    figureArgs = {}
     realChart = None
-    figureArgs = figureArgs
     for i, y in getmembers(go, isclass):
         if i.lower() == chart['type'].lower():
             realChart = y
@@ -287,124 +310,57 @@ def parseChartKeys_fig(chart, df, figureArgs={}):
         chartArgs = getfullargspec(realChart)[0]
         dropping = []
         for arg in figureArgs.keys():
-            if arg not in chartArgs:
+            if arg not in chartArgs and not arg == 'transforms' and not 'src' in arg and not '_agg' in arg:
                 dropping.append(arg)
         for i in dropping:
             del figureArgs[i]
-        for arg in chartArgs:
-            if arg in chart and arg+'src' not in chart and 'src' not in arg and arg not in 'meta':
-                figureArgs[arg] = chart[arg]
-            elif arg+'src' not in chart and arg in chart and arg not in ['meta']:
-                figureArgs[arg.replace('src', '')] = df[chart[arg]]
-                figureArgs[arg] = chart[arg]
+        for arg in list(set(chartArgs) | set(chart.keys())):
+            try:
+                if 'delta' in arg or 'gauge' in arg:
+                    rep = 'delta' if 'delta' in arg else 'gauge'
+                    if not rep in figureArgs:
+                        figureArgs[rep] = chart.get(rep, {})
+                    if arg[:-3] + '_agg' in chart:
+                        if arg == 'gaugevaluesrcsrc':
+                            figureArgs[rep]['threshold'] = {'value': aggregate_value(arg, chart, df)}
+                        else:
+                            figureArgs[rep][arg.replace('src', '').replace(rep, '')] = aggregate_value(arg, chart, df)
+                    elif arg != rep and arg in chart and arg+'src' not in chart and 'src' not in arg and arg not in 'meta':
+                        figureArgs[rep][arg[:-3].replace(rep, '')] = df[chart[arg]].tolist()
+                    if arg != rep and arg in chart and arg+'src' not in chart and 'src' not in arg and arg not in 'meta':
+                        figureArgs[arg] = chart[arg]
+                elif arg in chart and arg+'src' not in chart and 'src' not in arg and arg not in 'meta':
+                    figureArgs[arg] = chart[arg]
+                elif arg+'src' not in chart and arg in chart and arg not in ['meta']:
+                    if arg.replace('src', '') + '_agg' in chart:
+                        figureArgs[arg.replace('src', '')] = aggregate_value(arg, chart, df)
+                    else:
+                        figureArgs[arg.replace('src', '')] = df[chart[arg]].tolist()
+                    figureArgs[arg] = chart[arg]
+            except:
+                print(traceback.format_exc())
+                pass
         figureArgs['skip_invalid'] = True
-        return dropInvalidFigure(realChart, figureArgs, chart['type'].title())
+        newFig = dropInvalidFigure(realChart, figureArgs, chart['type'].title()).to_plotly_json()
+        keepDict = {}
+        for k, v in chart.items():
+            if 'src' in k or '_agg' in k or 'datasource' in k:
+                keepDict[k] = v
+        newFig = {**chart, **newFig}
+        return newFig
 
 def chartToPython(figure, df):
     try:
         data = json.loads(figure)['data']
+        datasource = json.loads(figure).get('datasource', 'data')
+        layout = json.loads(figure).get('layout')
     except:
         data = figure['data']
+        datasource = figure.get('datasource', 'data')
+        layout = figure.get('layout')
+
+    sorts = []
     fig = go.Figure()
-    returnstring = ''
-    for chart in data:
-        dff = df.copy()
-        if not 'yaxis' in chart:
-            chart['yaxis'] = 'y'
-        if not 'xaxis' in chart:
-            chart['xaxis'] = 'x'
-        if 'ysrc' in chart:
-            ysrc = chart['ysrc']
-        else:
-            ysrc = None
-        if 'xsrc' in chart:
-            xsrc = chart['xsrc']
-        else:
-            xsrc = None
-        if chart['type'] in typeDataSource:
-            if 'latsrc' in chart:
-                if typeDataSource[chart['type']+'lat']['xsrc'] in chart:
-                    xsrc = chart[typeDataSource[chart['type']+'lat']['xsrc']]
-                if typeDataSource[chart['type']+'lat']['ysrc'] in chart:
-                    ysrc = chart[typeDataSource[chart['type']+'lat']['ysrc']]
-            else:
-                if typeDataSource[chart['type']]['xsrc'] in chart:
-                    xsrc = chart[typeDataSource[chart['type']]['xsrc']]
-                if typeDataSource[chart['type']]['ysrc'] in chart:
-                    ysrc = chart[typeDataSource[chart['type']]['ysrc']]
-
-        if 'transforms' in chart:
-            groups = []
-            for t in chart['transforms']:
-                if 'groupssrc' in t:
-                    if 'enabled' in t:
-                        if t['enabled']:
-                            if t['type'] == 'groupby':
-                                groups.append(t)
-                    else:
-                        if t['type'] == 'groupby' and t['groupssrc']:
-                            groups.append(t)
-            if groups:
-                for grp in groups:
-                    for x in grp['styles']:
-                        dff2 = dff.copy()
-                        dff2 = dff2[dff2[grp['groupssrc']] == x['target']]
-                        returnstring, dff2, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff2)
-
-                        dff2.reset_index()
-                        if sorts:
-                            newSort = []
-                            order = []
-                            for sort in sorts:
-                                if 'targetsrc' in sort:
-                                    newSort.append(sort['targetsrc'])
-                                else:
-                                    newSort.append(xsrc)
-                                if 'order' in sort:
-                                    if sort['order'] == 'descending':
-                                        order.append(False)
-                                    else:
-                                        order.append(True)
-                                else:
-                                    order.append(True)
-                            if newSort:
-                                dff2 = dff2.sort_values(by=newSort, ascending=order)
-
-                        if x['value']:
-                            if 'name' not in x['value']:
-                                x['value']['name'] = x['target']
-                            newchart = parseChartKeys_fig(chart, dff2, x['value'])
-                        else:
-                            newchart = parseChartKeys_fig(chart, dff2, {'name': x['target']})
-                        fig.add_trace(newchart)
-            else:
-                returnstring, dff, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff)
-
-                if sorts:
-                    newSort = []
-                    order = []
-                    for sort in sorts:
-                        if 'targetsrc' in sort:
-                            newSort.append(sort['targetsrc'])
-                        else:
-                            newSort.append(xsrc)
-                        if 'order' in sort:
-                            if sort['order'] == 'descending':
-                                order.append(False)
-                            else:
-                                order.append(True)
-                        else:
-                            order.append(True)
-                    if newSort:
-                        dff = dff.sort_values(by=newSort, ascending=order)
-
-                newchart = parseChartKeys_fig(chart, dff)
-                fig.add_trace(newchart)
-
-
-        else:
-            newchart = parseChartKeys_fig(chart, dff)
-            fig.add_trace(newchart)
     for k in figure['layout']:
         try:
             if 'overlaying' in figure['layout'][k]:
@@ -412,18 +368,141 @@ def chartToPython(figure, df):
                     figure['layout'][k]['overlaying'] = 'free'
         except:
             pass
-    fig = dropInvalidLayout(figure['layout'], fig)
-    if 'template' not in figure['layout']:
+    fig = dropInvalidLayout(layout, fig)
+    if 'template' not in layout:
         fig.update_layout(template='none')
+    fig = fig.to_plotly_json()
+
+    try:
+        returnstring = ''
+        for chart in data:
+            dff = df.copy()
+            if not 'yaxis' in chart:
+                chart['yaxis'] = 'y'
+            if not 'xaxis' in chart:
+                chart['xaxis'] = 'x'
+            if 'ysrc' in chart:
+                ysrc = chart['ysrc']
+            else:
+                ysrc = None
+            if 'xsrc' in chart:
+                xsrc = chart['xsrc']
+            else:
+                xsrc = None
+            if chart['type'] in typeDataSource:
+                if 'latsrc' in chart:
+                    if typeDataSource[chart['type']+'lat']['xsrc'] in chart:
+                        xsrc = chart[typeDataSource[chart['type']+'lat']['xsrc']]
+                    if typeDataSource[chart['type']+'lat']['ysrc'] in chart:
+                        ysrc = chart[typeDataSource[chart['type']+'lat']['ysrc']]
+                else:
+                    if typeDataSource[chart['type']]['xsrc'] in chart:
+                        xsrc = chart[typeDataSource[chart['type']]['xsrc']]
+                    if typeDataSource[chart['type']]['ysrc'] in chart:
+                        ysrc = chart[typeDataSource[chart['type']]['ysrc']]
+
+            if 'transforms' in chart:
+                groups = []
+                for t in chart['transforms']:
+                    if 'groupssrc' in t:
+                        if 'enabled' in t:
+                            if t['enabled']:
+                                if t['type'] == 'groupby':
+                                    groups.append(t)
+                        else:
+                            if t['type'] == 'groupby' and t['groupssrc']:
+                                groups.append(t)
+                if groups:
+                    dff2 = dff.copy()
+                    for grp in groups:
+                        returnstring, dff2, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff2)
+
+                        dff2.reset_index()
+                        # if sorts:
+                        #     newSort = []
+                        #     order = []
+                        #     for sort in sorts:
+                        #         if 'targetsrc' in sort:
+                        #             newSort.append(sort['targetsrc'])
+                        #         else:
+                        #             newSort.append(xsrc)
+                        #         if 'order' in sort:
+                        #             if sort['order'] == 'descending':
+                        #                 order.append(False)
+                        #             else:
+                        #                 order.append(True)
+                        #         else:
+                        #             order.append(True)
+                        #     if newSort:
+                        #         dff2 = dff2.sort_values(by=newSort, ascending=order)
+
+                        for t in chart['transforms']:
+                            if 'groupssrc' in t:
+                                if 'enabled' in t:
+                                    if t['enabled']:
+                                        if t['type'] == 'groupby':
+                                            t['groups'] = dff2[t['groupssrc']].tolist()
+                                            t['styles'] = [{x: {}} for x in dff2[t['groupssrc']].unique().tolist()]
+                                else:
+                                    if t['type'] == 'groupby' and t['groupssrc']:
+                                        t['groups'] = dff2[t['groupssrc']].tolist()
+                                        t['styles'] = [{x: {}} for x in dff2[t['groupssrc']].unique().tolist()]
+                        newchart = parseChartKeys_fig(chart, dff2)
+                        # if x['value']:
+                        #     if 'name' not in x['value']:
+                        #         x['value']['name'] = x['target']
+                        #     newchart = parseChartKeys_fig(chart, dff2, x['value'])
+                        # else:
+                        #     newchart = parseChartKeys_fig(chart, dff2, {'name': x['target']})
+                        newchart['transforms'] = chart['transforms']
+                        fig['data'].append(newchart)
+                        # fig.add_trace(newchart)
+                else:
+                    returnstring, dff, sorts = parseTransforms(chart['transforms'], returnstring, ysrc, xsrc, dff)
+
+                    # if sorts:
+                    #     newSort = []
+                    #     order = []
+                    #     for sort in sorts:
+                    #         if 'targetsrc' in sort:
+                    #             newSort.append(sort['targetsrc'])
+                    #         else:
+                    #             newSort.append(xsrc)
+                    #         if 'order' in sort:
+                    #             if sort['order'] == 'descending':
+                    #                 order.append(False)
+                    #             else:
+                    #                 order.append(True)
+                    #         else:
+                    #             order.append(True)
+                    #     if newSort:
+                    #         dff = dff.sort_values(by=newSort, ascending=order)
+
+                    newchart = parseChartKeys_fig(chart, dff)
+                    fig['data'].append(newchart)
+
+            else:
+                newchart = parseChartKeys_fig(chart, dff)
+                fig['data'].append(newchart)
+        fig['datasource'] = datasource
+    except:
+        print(traceback.format_exc())
     return fig
 
 def cleanDataFromFigure(figure):
-    cleaning = ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon', 'open', 'close', 'low', 'high',
-                'target']
+    cleaning = ['x', 'y', 'z', 'values', 'meta', 'labels', 'locations', 'lat', 'lon',
+                'open', 'close', 'low', 'high',
+                'target', 'groups', 'styles']
+    special = ['indicator']
+    spec_cleaning = ['valuesrc', 'value', 'deltasrc', 'deltareferencesrc', 'gaugesrc', 'gaugevaluesrc']
     for d in figure['data']:
         for k in cleaning:
             if k in d.keys():
                 del d[k]
+        if d['type'] in special:
+            for k in spec_cleaning:
+                if k in d.keys():
+                    del d[k]
         if 'transforms' in d:
             for t in d['transforms']:
                 for k in cleaning:

@@ -36,9 +36,10 @@ class ChartEditor extends Component {
     }
 
     hasTransforms() {
-        return this.context.fullData.some((d) =>
-            TRANSFORMABLE_TRACES.includes(d.type)
-        );
+        return true
+//        return this.context.fullData.some((d) =>
+//            TRANSFORMABLE_TRACES.includes(d.type)
+//        );
     }
 
     hasAxes() {

@@ -1,6 +1,6 @@
 {
   "name": "dash_chart_editor",
-  "version": "0.0.1a4",
+  "version": "0.0.1a5",
   "description": "Dash wrapper for Plotly's react-chart-editor",
 "repository": {
     "type": "git",
@@ -23,7 +23,8 @@
         "format": "run-s private::format.*",
         "private::lint.eslint": "eslint src",
         "private::lint.prettier": "prettier \"src/**/*.{js,jsx,ts,tsx}\" --list-different",
-        "lint": "run-s private::lint.*"
+        "lint": "run-s private::lint.*",
+        "dist": "npm run build && python setup.py sdist bdist_wheel"
     },
   "author": "Bryan Schroeder <bryan.ri.schroeder@gmail.com>",
   "license": "MIT",
