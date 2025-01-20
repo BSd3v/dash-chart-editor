@@ -508,8 +508,12 @@ def cleanDataFromFigure(figure):
                 if t['type'] == 'filter':
                     t['type'] = 'filter_python'
     layout = figure['layout']
-    if layout['xaxis']['autorange']:
-        del layout['xaxis']['range']
-    if layout['yaxis']['autorange']:
-        del layout['yaxis']['range']
+    xaxis = layout.get('xaxis', {})
+    if xaxis.get('autorange'):
+        xaxis.pop('range', None)  # Use pop with default to avoid KeyError
+
+    # Check if 'yaxis' exists in layout and handle potential KeyError
+    yaxis = layout.get('yaxis', {})
+    if yaxis.get('autorange'):
+        yaxis.pop('range', None)
     return figure
