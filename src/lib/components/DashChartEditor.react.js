@@ -45,6 +45,15 @@ class DashChartEditor extends Component {
 
     loadFigure(figure, bypass) {
         const {setProps} = this.props;
+        // swap `filter_python` for `filter`
+        figure.data.map((d) => {
+            d.transforms = d.transforms.map((t) => {
+                if (t.type === 'filter_python') {
+                    t.type = 'filter';
+                }
+                return t;
+            });
+        });
         if (this.state.mounted || bypass) {
             this.updateOptions({
                 data: figure.data,

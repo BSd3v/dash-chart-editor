@@ -115,10 +115,7 @@ def filter(t, df, returnstring, ysrc, xsrc):
                 if v is None:
                     v = ''
                 if op in operators:
-                    ## needs inverse for operators as inequality
-                    print(op)
-                    print(t['targetsrc'])
-                    df = df.loc[~getattr(df[t['targetsrc']], operators[op])(v)]
+                    df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
                 elif op in inRngOperators:
                     df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
                 elif op in exRngOperators:
@@ -134,7 +131,7 @@ def filter(t, df, returnstring, ysrc, xsrc):
         print(t)
     return returnstring, df
 
-transformsFunctions = {'aggregate': aggregate, 'groupby': groupby, 'filter': filter, 'sort': sort}
+transformsFunctions = {'aggregate': aggregate, 'groupby': groupby, 'filter': filter, 'filter_python': filter, 'sort': sort}
 
 figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length",
                     "transforms": [{"type": "aggregate", "groupssrc": "sepal_length",
@@ -150,7 +147,7 @@ figure = {"data": [{"type": "scatter", "mode": "markers", "xsrc": "sepal_length"
 def parseTransforms(transforms, returnstring, ysrc, xsrc, df=pd.DataFrame()):
     sorts = []
     # only do filters, everything else is handled by the transforms
-    for y in ['filter']:
+    for y in ['filter', 'filter_python']:
         for t in transforms:
             if t['type'] == y:
                 if 'enabled' in t:
@@ -508,4 +505,6 @@ def cleanDataFromFigure(figure):
                 for k in cleaning:
                     if k in t.keys():
                         del t[k]
+                if t['type'] == 'filter':
+                    t['type'] = 'filter_python'
     return figure
