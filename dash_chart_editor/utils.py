@@ -507,4 +507,9 @@ def cleanDataFromFigure(figure):
                         del t[k]
                 if t['type'] == 'filter':
                     t['type'] = 'filter_python'
+    layout = figure['layout']
+    if layout['xaxis']['autorange']:
+        del layout['xaxis']['range']
+    if layout['yaxis']['autorange']:
+        del layout['yaxis']['range']
     return figure
