@@ -7,6 +7,8 @@ from inspect import getmembers, isclass, getfullargspec, isfunction
 import traceback
 import re
 import numpy as np
+import datetime
+from dateutil.relativedelta import relativedelta
 
 df = px.data.iris()
 
@@ -87,6 +89,105 @@ typeDataSource = {'pie': {'xsrc': 'labelssrc', 'ysrc': 'valuesrc'},
                     'choroplethmapbox': {'xsrc': 'locationssrc', 'ysrc': 'zsrc'}
                   }
 
+
+def get_offset_date(offset_str):
+    """
+    Calculate the date offset by a given number of days, months, or years.
+
+    Parameters:
+    offset_str (str): A string in the format 'offsetDay(n)', 'offsetMonth(n)', or 'offsetYear(n)' where n is an integer.
+
+    Returns:
+    datetime.date: The calculated date.
+    """
+    day_match = re.match(r'offsetDay\((\-?\d+)\)', offset_str)
+    month_match = re.match(r'offsetMonth\((\-?\d+)\)', offset_str)
+    year_match = re.match(r'offsetYear\((\-?\d+)\)', offset_str)
+
+    if day_match:
+        days_offset = int(day_match.group(1))
+        return (datetime.datetime.now() + datetime.timedelta(days=days_offset)).date()
+    elif month_match:
+        months_offset = int(month_match.group(1))
+        return (datetime.datetime.now() + relativedelta(months=months_offset)).date()
+    elif year_match:
+        years_offset = int(year_match.group(1))
+        return (datetime.datetime.now() + relativedelta(years=years_offset)).date()
+    else:
+        raise ValueError(f"Invalid offset format: {offset_str}")
+
+# Define common date swaps for logistics needs, including rolling periods, cast as dates
+date_swaps = {
+    'today': datetime.datetime.now().date(),
+    'yesterday': (datetime.datetime.now() - datetime.timedelta(days=1)).date(),
+    'tomorrow': (datetime.datetime.now() + datetime.timedelta(days=1)).date(),
+    'start_of_week': (datetime.datetime.now() - datetime.timedelta(days=datetime.datetime.now().weekday())).date(),
+    'end_of_week': (datetime.datetime.now() + datetime.timedelta(days=(6 - datetime.datetime.now().weekday()))).date(),
+    'start_of_month': datetime.datetime.now().replace(day=1).date(),
+    'end_of_month': ((datetime.datetime.now().replace(day=1) + relativedelta(months=1)) - datetime.timedelta(days=1)).date(),
+    'start_of_year': datetime.datetime.now().replace(month=1, day=1).date(),
+    'end_of_year': datetime.datetime.now().replace(month=12, day=31).date(),
+    'start_of_last_month': (datetime.datetime.now().replace(day=1) - relativedelta(months=1)).date(),
+    'end_of_last_month': (datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)).date(),
+    'start_of_next_month': (datetime.datetime.now().replace(day=1) + relativedelta(months=1)).date(),
+    'end_of_next_month': ((datetime.datetime.now().replace(day=1) + relativedelta(months=2)) - datetime.timedelta(days=1)).date(),
+    'start_of_last_quarter': (datetime.datetime.now() - relativedelta(months=(datetime.datetime.now().month - 1) % 3)).replace(day=1).date(),
+    'end_of_last_quarter': ((datetime.datetime.now().replace(day=1) - relativedelta(months=(datetime.datetime.now().month - 1) % 3)) + relativedelta(months=3) - datetime.timedelta(days=1)).date(),
+    'start_of_next_quarter': (datetime.datetime.now() + relativedelta(months=(3 - (datetime.datetime.now().month - 1) % 3))).replace(day=1).date(),
+    'end_of_next_quarter': ((datetime.datetime.now().replace(day=1) + relativedelta(months=(3 - (datetime.datetime.now().month - 1) % 3)) + relativedelta(months=3)) - datetime.timedelta(days=1)).date(),
+}
+
+
+def convert_to_date(series):
+    """
+    Convert a Pandas Series to date type, handling errors gracefully.
+
+    Parameters:
+    series (pd.Series): The Pandas Series to convert.
+
+    Returns:
+    pd.Series: A Series with date-only values.
+    """
+    try:
+        return pd.to_datetime(series, errors='coerce').dt.date
+    except Exception as e:
+        print(f"Error converting series to date: {e}")
+        return series
+
+def process_columns(df, v1, v2, date_swaps, targetsrc):
+    v1_series = None
+    v2_series = None
+    v1_date = False
+    # Check if v1 is in date_swaps before converting it to a Series
+    if v1 in date_swaps:
+        v1_date = True
+        v1 = date_swaps[v1]
+        # If using date_swap, need to switch to date for the filters
+        df[targetsrc] = convert_to_date(df[targetsrc])
+    elif 'offset' in v1:
+        v1_date = True
+        v1 = get_offset_date(v1)
+        df[targetsrc] = convert_to_date(df[targetsrc])
+    elif v1 in df.columns:
+        v1_series = df[v1]
+        if v2 in date_swaps:
+            v1_series = convert_to_date(v1_series)
+
+    # Check if v2 is in date_swaps before converting it to a Series
+    if v2 in date_swaps:
+        v2 = date_swaps[v2]
+        # If using date_swap, need to switch to date for the filters
+        df[targetsrc] = convert_to_date(df[targetsrc])
+    elif 'offset' in v2:
+        v2 = get_offset_date(v2)
+        df[targetsrc] = convert_to_date(df[targetsrc])
+    elif v2 in df.columns:
+        v2_series = df[v2]
+        if v1_date:
+            v2_series = convert_to_date(v2_series)
+
+    return df, v1_series if v1_series is not None else v1, v2_series if v2_series is not None else v2
+
 def filter(t, df, returnstring, ysrc, xsrc):
     df = df.fillna('')
     try:
@@ -108,6 +209,7 @@ def filter(t, df, returnstring, ysrc, xsrc):
                     else:
                         v1 = v.iat[0]
                         v2 = v.iat[0]
+                    df, v1, v2 = process_columns(df, v1, v2, date_swaps, t['targetsrc'])
                 elif op in operators:
                     v = v.iat[0]
                 else:
@@ -115,6 +217,16 @@ def filter(t, df, returnstring, ysrc, xsrc):
                 if v is None:
                     v = ''
                 if op in operators:
+                    if v in df.columns:
+                        v = df[v]
+                    elif 'offset' in v:
+                        v = get_offset_date(v)
+                        ## if using offsetDay, need to switch to date for the filters
+                        df[t['targetsrc']] = convert_to_date(df[t['targetsrc']])
+                    elif v in date_swaps:
+                        v = date_swaps[v]
+                        ## if using date_swap, need to switch to date for the filters
+                        df[t['targetsrc']] = convert_to_date(df[t['targetsrc']])
                     df = df.loc[getattr(df[t['targetsrc']], operators[op])(v)]
                 elif op in inRngOperators:
                     df = df.loc[df[t['targetsrc']].between(v1, v2, **inRngOperators[op])]
