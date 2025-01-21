@@ -47,12 +47,17 @@ class DashChartEditor extends Component {
         const {setProps} = this.props;
         // swap `filter_python` for `filter`
         figure.data.map((d) => {
-            d.transforms = d.transforms.map((t) => {
-                if (t.type === 'filter_python') {
-                    t.type = 'filter';
-                }
-                return t;
-            });
+            if (d.transforms) {  // Check if transforms exists
+                d.transforms = d.transforms.map((t) => {
+                    if (t.type === 'filter_python') {
+                        t.type = 'filter';
+                    }
+                    return t;
+                });
+            }
+            // adjusts if the filters dropped the data out, this keeps the chart editing properly
+            if (d.x.length == 0) d.x = ['']
+            if (d.y.length == 0) d.y = ['']
         });
         if (this.state.mounted || bypass) {
             this.updateOptions({
