@@ -9,65 +9,31 @@ import {
     FilterOperation,
     FilterValue,
     connectAggregationToTransform,
-    Section,
 } from 'react-chart-editor';
 
 import CustomTransformAccordion from './CustomTransformAccordion';
-import CustomTraceAccordion from './CustomTraceAccordion';
 
-const primeAggregationSection = connectAggregationToTransform(PlotlySection);
-
-class AggregationSection extends primeAggregationSection {
-
-    // Override the updateAggregation method
-    updateAggregation(update) {
-        const newUpdate = {};
-        const path = `aggregations[${this.props.aggregationIndex}]`;
-
-        for (const key in update) {
-            newUpdate[`${path}.${key}`] = update[key];
-        }
-
-        if (!newUpdate[`${path}.target`]) {
-            newUpdate[`${path}.target`] = this.fullContainer.target;
-        }
-
-        newUpdate[`${path}.enabled`] = true;
-
-        // Additional logic or modifications can be added here
-        console.log('Updating aggregation with:', newUpdate);
-
-        // Call the context's updateContainer method
-        this.context.updateContainer(newUpdate);
-    }
-
-    render() {
-        // Render the original component's UI
-        return super.render();
-    }
-}
+const AggregationSection = connectAggregationToTransform(PlotlySection);
 
 export class Aggregations extends Component {
     render() {
         const {
-            fullContainer: {oldAggregations = []},
-            dataSourceOptions,
-            localize: _,
-            container,
+            fullContainer: {aggregations = []},
         } = this.context;
-        const aggregations = container.aggregations || oldAggregations
+        const {localize: _} = this.context;
         if (aggregations.length === 0) {
             return null;
         }
 
-        const children = aggregations
-                    .map((d, i) => (
+        return (
+            <PlotlySection name={_('Aggregations')} attr="aggregations">
+                {aggregations
+                    .filter((aggr, i) => aggr.target && i === 0)
+                    .map(({target}, i) => (
                         <AggregationSection show key={i} aggregationIndex={i}>
-                            <Dropdown label='Target' attr="target"
-                             options={dataSourceOptions} clearable={false}/>
                             <Dropdown
                                 attr="func"
-                                label="Function"
+                                label={target}
                                 options={[
                                     {label: _('Count'), value: 'count'},
                                     {label: _('Sum'), value: 'sum'},
@@ -89,11 +55,7 @@ export class Aggregations extends Component {
                                 clearable={false}
                             />
                         </AggregationSection>
-                    ))
-
-        return (
-            <PlotlySection name={_('Aggregations')} attr="aggregations">
-                {children}
+                    ))}
             </PlotlySection>
         );
     }
@@ -103,13 +65,11 @@ Aggregations.plotly_editor_traits = {no_visibility_forcing: true};
 Aggregations.contextTypes = {
     fullContainer: PropTypes.object,
     localize: PropTypes.func,
-    dataSourceOptions: PropTypes.array,
-    container: PropTypes.object,
 };
 
 const CustomGraphTransformsPanel = (props, {localize: _}) => {
     return (
-        <CustomTraceAccordion traceFilterCondition={(t) => t.type}>
+        <TraceAccordion traceFilterCondition={(t) => t.type}>
             <CustomTransformAccordion>
                 <Radio
                     attr="enabled"
@@ -135,15 +95,12 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
 
                 <Aggregations />
             </CustomTransformAccordion>
-        </CustomTraceAccordion>
+        </TraceAccordion>
     );
 };
 
 CustomGraphTransformsPanel.contextTypes = {
-    fullContainer: PropTypes.object,
     localize: PropTypes.func,
-    container: PropTypes.object,
-    dataSourceOptions: PropTypes.array,
 };
 
 export default CustomGraphTransformsPanel;
