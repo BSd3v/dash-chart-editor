@@ -183,4 +183,4 @@ def update_column_options(data_source, stored_data):
     ])
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=8051)
+    app.run(debug=True, port=8051)

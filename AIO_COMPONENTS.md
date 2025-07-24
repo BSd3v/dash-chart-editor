@@ -14,7 +14,7 @@ A single chart editor component that provides an interface for creating and edit
 - Support for 8 chart types: scatter, line, bar, histogram, box, violin, pie, heatmap
 - Dynamic data source and column selection
 - Real-time chart updates via native Dash callbacks
-- Support for both DCC and DMC (Dash Mantine Components) UI flavors
+- Support for both DCC and Pydantic Form UI flavors
 - Configurable styling and layout options
 
 #### Basic Usage
@@ -37,7 +37,7 @@ data_sources = {
 chart_editor = ChartEditorAIO(
     data_sources=data_sources,
     aio_id="my-editor",
-    flavor="dcc"  # or "dmc" for Dash Mantine Components
+    flavor="dcc"  # or "pydantic_form" for auto-generated forms
 )
 ```
 
@@ -45,7 +45,7 @@ chart_editor = ChartEditorAIO(
 
 - **data_sources** (Dict[str, pd.DataFrame]): Dictionary of dataframes with names as keys
 - **aio_id** (str, optional): Unique identifier for this AIO instance. Auto-generated if not provided.
-- **flavor** (str): UI flavor - 'dcc' or 'dmc'. Default is 'dcc'.
+- **flavor** (str): UI flavor - 'dcc' or 'pydantic_form'. Default is 'dcc'.
 - **kwargs**: Additional properties passed to the container div
 
 #### Component IDs
@@ -120,11 +120,12 @@ See `examples/aio_multi_chart.py` for an example showing:
 - Chart selection and editing
 - Different layout modes for chart display
 
-### Example 3: DMC Flavor
+### Example 3: Pydantic Form Flavor
 
-See `examples/aio_dmc_flavor.py` for an example using:
-- Dash Mantine Components for a modern UI
-- Same functionality as DCC flavor with improved styling
+See `examples/aio_pydantic_form_flavor.py` for an example using:
+- Dash Pydantic Form for auto-generated forms with validation
+- Type-safe configuration with Pydantic models
+- Same functionality as DCC flavor with enhanced form handling
 
 ## Integration with Existing Applications
 
@@ -179,7 +180,7 @@ def update_column_options(data_source, stored_data):
 | Single monolithic component | Modular AIO components |
 | Limited customization | Full Dash callback integration |
 | External dependency | Built-in to dash-chart-editor |
-| Fixed UI styling | Configurable DCC/DMC flavors |
+| Fixed UI styling | Configurable DCC/Pydantic Form flavors |
 
 ### Migration Steps
 
@@ -237,11 +238,32 @@ The original `DashChartEditor` component remains available and unchanged, ensuri
 - Familiar Dash look and feel
 - Minimal dependencies
 
-### DMC Flavor
-- Uses Dash Mantine Components
-- Modern, clean design
-- Enhanced user experience
-- Requires `dash-mantine-components` installation
+### Pydantic Form Flavor
+- Uses dash-pydantic-form for auto-generated forms
+- Type-safe configuration with Pydantic models
+- Built-in validation and error handling
+- Requires `dash-pydantic-form` installation
+
+#### Pydantic Models
+
+The pydantic form flavor uses structured models for configuration:
+
+```python
+from dash_chart_editor.aio.models import ChartConfigModel, MultiChartConfigModel
+
+# ChartConfigModel defines chart configuration options
+config = ChartConfigModel(
+    chart_type='scatter',
+    title='My Chart',
+    # ... other fields are optional with sensible defaults
+)
+
+# MultiChartConfigModel defines multi-chart layout options  
+multi_config = MultiChartConfigModel(
+    layout_mode='grid_2x2',
+    selected_chart_index=0
+)
+```
 
 ## Advanced Usage
 
@@ -285,7 +307,7 @@ def save_state(figure_data):
 
 ### Common Issues
 
-1. **DMC components not working**: Install `dash-mantine-components`
+1. **Pydantic Form components not working**: Install `dash-pydantic-form`
 2. **Column options not updating**: Implement the data source change callback
 3. **Charts not rendering**: Check data format and column selection
 4. **Callback conflicts**: Ensure unique `aio_id` values

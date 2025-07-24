@@ -15,10 +15,12 @@ import plotly.express as px
 import pandas as pd
 
 try:
-    import dash_mantine_components as dmc
-    DMC_AVAILABLE = True
+    from dash_pydantic_form import ModelForm
+    PYDANTIC_FORM_AVAILABLE = True
 except ImportError:
-    DMC_AVAILABLE = False
+    PYDANTIC_FORM_AVAILABLE = False
+
+from .models import ChartConfigModel
 
 
 class ChartEditorAIO(html.Div):
@@ -45,6 +47,11 @@ class ChartEditorAIO(html.Div):
     # Component default properties
     ids = ids
     
+    @classmethod
+    def get_pydantic_form_data_store_id(cls, aio_id):
+        """Get the ID for the pydantic form's data store"""
+        return {'part': '_pydf-main', 'aio_id': aio_id, 'form_id': f'chart-config-{aio_id}', 'parent': ''}
+    
     CHART_TYPES = [
         {'label': 'Scatter Plot', 'value': 'scatter'},
         {'label': 'Line Chart', 'value': 'line'},
@@ -69,7 +76,7 @@ class ChartEditorAIO(html.Div):
         Args:
             data_sources: Dictionary of dataframes with names as keys
             aio_id: Unique identifier for this AIO instance
-            flavor: UI flavor - 'dcc' or 'dmc'
+            flavor: UI flavor - 'dcc' or 'pydantic_form'
             **kwargs: Additional properties passed to the container
         """
         if aio_id is None:
@@ -80,8 +87,8 @@ class ChartEditorAIO(html.Div):
         self.data_sources = data_sources or {}
         
         # Validate flavor
-        if flavor == 'dmc' and not DMC_AVAILABLE:
-            raise ImportError("dash_mantine_components is required for 'dmc' flavor")
+        if flavor == 'pydantic_form' and not PYDANTIC_FORM_AVAILABLE:
+            raise ImportError("dash_pydantic_form is required for 'pydantic_form' flavor")
         
         # Build the component
         children = self._build_layout()
@@ -94,8 +101,8 @@ class ChartEditorAIO(html.Div):
     
     def _build_layout(self):
         """Build the layout based on the selected flavor"""
-        if self.flavor == 'dmc':
-            return self._build_dmc_layout()
+        if self.flavor == 'pydantic_form':
+            return self._build_pydantic_form_layout()
         else:
             return self._build_dcc_layout()
     
@@ -159,53 +166,54 @@ class ChartEditorAIO(html.Div):
             ], style={'width': '68%', 'display': 'inline-block', 'marginLeft': '2%'})
         ]
     
-    def _build_dmc_layout(self):
-        """Build layout using DMC components"""
-        data_source_options = [{'label': name, 'value': name} for name in self.data_sources.keys()]
+    def _build_pydantic_form_layout(self):
+        """Build layout using dash-pydantic-form"""
+        # Create a ModelForm for chart configuration
+        chart_form = ModelForm(
+            item=ChartConfigModel,
+            form_id=f"chart-config-{self.aio_id}",
+            aio_id=self.aio_id
+        )
         
         return [
-            dmc.Container([
-                dmc.Title("Chart Editor", order=4, mb="md"),
+            html.Div([
+                html.H4("Chart Editor", style={'marginBottom': '20px'}),
                 
-                dmc.Grid([
-                    dmc.Col([
-                        # Chart configuration controls
-                        dmc.Stack([
-                            dmc.Select(
-                                label="Chart Type",
-                                data=self.CHART_TYPES,
-                                value='scatter',
-                                id=self.ids.chart_type(self.aio_id)
-                            ),
-                            
-                            dmc.Select(
-                                label="Data Source",
-                                data=data_source_options,
+                html.Div([
+                    # Left side: Configuration forms
+                    html.Div([
+                        html.H5("Chart Configuration"),
+                        chart_form,
+                        
+                        html.Hr(style={'margin': '20px 0'}),
+                        
+                        # Data source selection (separate from pydantic form since it's dynamic)
+                        html.Div([
+                            html.Label("Data Source:", style={'fontWeight': 'bold'}),
+                            dcc.Dropdown(
+                                id=self.ids.data_source(self.aio_id),
+                                options=[{'label': name, 'value': name} for name in self.data_sources.keys()],
                                 value=list(self.data_sources.keys())[0] if self.data_sources else None,
-                                id=self.ids.data_source(self.aio_id)
-                            ),
-                            
-                            # Column controls will be added dynamically
-                            html.Div(id=f"column-controls-{self.aio_id}", children=[
-                                self._build_column_controls([])
-                            ]),
-                            
-                            dmc.TextInput(
-                                label="Chart Title",
-                                placeholder="Enter chart title...",
-                                id=self.ids.title(self.aio_id)
+                                style={'marginTop': '5px'}
                             )
+                        ], style={'marginBottom': '15px'}),
+                        
+                        # Dynamic column controls
+                        html.Div(id=f"column-controls-{self.aio_id}", children=[
+                            self._build_column_controls([])
                         ])
-                    ], span=4),
+                        
+                    ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top', 'paddingRight': '20px'}),
                     
-                    dmc.Col([
+                    # Right side: Chart display
+                    html.Div([
                         dcc.Graph(
                             id=self.ids.chart(self.aio_id),
                             style={'height': '600px'}
                         ),
                         # Hidden div to store figure data
                         html.Div(id=self.ids.figure_data(self.aio_id), style={'display': 'none'})
-                    ], span=8)
+                    ], style={'width': '68%', 'display': 'inline-block', 'marginLeft': '2%'})
                 ])
             ])
         ]
@@ -217,67 +225,41 @@ class ChartEditorAIO(html.Div):
         
         column_options = [{'label': col, 'value': col} for col in columns]
         
-        if self.flavor == 'dmc':
-            return dmc.Stack([
-                dmc.Select(
-                    label="X Column",
-                    data=column_options,
-                    id=self.ids.x_column(self.aio_id)
-                ),
-                dmc.Select(
-                    label="Y Column",
-                    data=column_options,
-                    id=self.ids.y_column(self.aio_id)
-                ),
-                dmc.Select(
-                    label="Color Column (optional)",
-                    data=column_options,
+        return html.Div([
+            html.Div([
+                html.Label("X Column:"),
+                dcc.Dropdown(
+                    id=self.ids.x_column(self.aio_id),
+                    options=column_options
+                )
+            ], style={'marginBottom': '10px'}),
+            
+            html.Div([
+                html.Label("Y Column:"),
+                dcc.Dropdown(
+                    id=self.ids.y_column(self.aio_id),
+                    options=column_options
+                )
+            ], style={'marginBottom': '10px'}),
+            
+            html.Div([
+                html.Label("Color Column (optional):"),
+                dcc.Dropdown(
                     id=self.ids.color_column(self.aio_id),
-                    clearable=True
-                ),
-                dmc.Select(
-                    label="Size Column (optional)",
-                    data=column_options,
-                    id=self.ids.size_column(self.aio_id),
+                    options=column_options,
                     clearable=True
                 )
-            ])
-        else:
-            return html.Div([
-                html.Div([
-                    html.Label("X Column:"),
-                    dcc.Dropdown(
-                        id=self.ids.x_column(self.aio_id),
-                        options=column_options
-                    )
-                ], style={'marginBottom': '10px'}),
-                
-                html.Div([
-                    html.Label("Y Column:"),
-                    dcc.Dropdown(
-                        id=self.ids.y_column(self.aio_id),
-                        options=column_options
-                    )
-                ], style={'marginBottom': '10px'}),
-                
-                html.Div([
-                    html.Label("Color Column (optional):"),
-                    dcc.Dropdown(
-                        id=self.ids.color_column(self.aio_id),
-                        options=column_options,
-                        clearable=True
-                    )
-                ], style={'marginBottom': '10px'}),
-                
-                html.Div([
-                    html.Label("Size Column (optional):"),
-                    dcc.Dropdown(
-                        id=self.ids.size_column(self.aio_id),
-                        options=column_options,
-                        clearable=True
-                    )
-                ], style={'marginBottom': '10px'})
-            ])
+            ], style={'marginBottom': '10px'}),
+            
+            html.Div([
+                html.Label("Size Column (optional):"),
+                dcc.Dropdown(
+                    id=self.ids.size_column(self.aio_id),
+                    options=column_options,
+                    clearable=True
+                )
+            ], style={'marginBottom': '10px'})
+        ])
 
     # Static methods for callback registration
     @staticmethod

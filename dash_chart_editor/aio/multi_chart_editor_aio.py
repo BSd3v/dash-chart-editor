@@ -14,10 +14,12 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 try:
-    import dash_mantine_components as dmc
-    DMC_AVAILABLE = True
+    from dash_pydantic_form import ModelForm
+    PYDANTIC_FORM_AVAILABLE = True
 except ImportError:
-    DMC_AVAILABLE = False
+    PYDANTIC_FORM_AVAILABLE = False
+
+from .models import MultiChartConfigModel
 
 from .chart_editor_aio import ChartEditorAIO
 
@@ -45,6 +47,11 @@ class MultiChartEditorAIO(html.Div):
     # Component default properties
     ids = ids
     
+    @classmethod
+    def get_pydantic_form_data_store_id(cls, aio_id):
+        """Get the ID for the pydantic form's data store"""
+        return {'part': '_pydf-main', 'aio_id': aio_id, 'form_id': f'multi-chart-config-{aio_id}', 'parent': ''}
+    
     LAYOUT_MODES = [
         {'label': 'Single Chart View', 'value': 'single'},
         {'label': 'Grid View (2x2)', 'value': 'grid_2x2'},
@@ -65,7 +72,7 @@ class MultiChartEditorAIO(html.Div):
         Args:
             data_sources: Dictionary of dataframes with names as keys
             aio_id: Unique identifier for this AIO instance
-            flavor: UI flavor - 'dcc' or 'dmc'
+            flavor: UI flavor - 'dcc' or 'pydantic_form'
             **kwargs: Additional properties passed to the container
         """
         if aio_id is None:
@@ -76,8 +83,8 @@ class MultiChartEditorAIO(html.Div):
         self.data_sources = data_sources or {}
         
         # Validate flavor
-        if flavor == 'dmc' and not DMC_AVAILABLE:
-            raise ImportError("dash_mantine_components is required for 'dmc' flavor")
+        if flavor == 'pydantic_form' and not PYDANTIC_FORM_AVAILABLE:
+            raise ImportError("dash_pydantic_form is required for 'pydantic_form' flavor")
         
         # Build the component
         children = self._build_layout()
@@ -90,8 +97,8 @@ class MultiChartEditorAIO(html.Div):
     
     def _build_layout(self):
         """Build the layout based on the selected flavor"""
-        if self.flavor == 'dmc':
-            return self._build_dmc_layout()
+        if self.flavor == 'pydantic_form':
+            return self._build_pydantic_form_layout()
         else:
             return self._build_dcc_layout()
     
@@ -152,51 +159,64 @@ class MultiChartEditorAIO(html.Div):
             ])
         ]
     
-    def _build_dmc_layout(self):
-        """Build layout using DMC components"""
+    def _build_pydantic_form_layout(self):
+        """Build layout using dash-pydantic-form"""
+        # Create a ModelForm for multi-chart configuration
+        multi_chart_form = ModelForm(
+            item=MultiChartConfigModel,
+            form_id=f"multi-chart-config-{self.aio_id}",
+            aio_id=self.aio_id
+        )
+        
         return [
-            dmc.Container([
-                dmc.Title("Multi-Chart Editor", order=3, mb="md"),
+            html.Div([
+                html.H3("Multi-Chart Editor", style={'marginBottom': '20px'}),
                 
-                dmc.Grid([
-                    dmc.Col([
-                        dmc.Stack([
-                            dmc.Title("Chart Management", order=5),
-                            
-                            dmc.Group([
-                                dmc.Button("Add Chart", id=self.ids.add_chart_btn(self.aio_id), color="blue"),
-                                dmc.Button("Remove Chart", id=self.ids.remove_chart_btn(self.aio_id), color="red")
-                            ]),
-                            
-                            dmc.Select(
-                                label="Select Chart to Edit",
-                                placeholder="No charts created yet",
-                                data=[],
-                                id=self.ids.selected_chart(self.aio_id)
-                            ),
-                            
-                            dmc.Select(
-                                label="Display Mode",
-                                data=self.LAYOUT_MODES,
-                                value='single',
-                                id=self.ids.layout_mode(self.aio_id)
-                            )
-                        ]),
+                # Main layout
+                html.Div([
+                    # Left side: Chart management and configuration
+                    html.Div([
+                        html.H5("Chart Management"),
+                        html.Div([
+                            html.Button("Add Chart", id=self.ids.add_chart_btn(self.aio_id), 
+                                      style={'marginRight': '10px', 'backgroundColor': '#007BFF', 'color': 'white', 'border': 'none', 'padding': '8px 16px'}),
+                            html.Button("Remove Chart", id=self.ids.remove_chart_btn(self.aio_id),
+                                      style={'backgroundColor': '#DC3545', 'color': 'white', 'border': 'none', 'padding': '8px 16px'})
+                        ], style={'marginBottom': '15px'}),
                         
-                        # Chart editor container
-                        html.Div(id=self.ids.chart_editor_container(self.aio_id), children=[
-                            dmc.Text("Select or create a chart to start editing.", 
-                                   align="center", color="dimmed", p="md")
+                        html.Div([
+                            html.Label("Select Chart to Edit:", style={'fontWeight': 'bold'}),
+                            dcc.Dropdown(
+                                id=self.ids.selected_chart(self.aio_id),
+                                placeholder="No charts created yet",
+                                options=[]
+                            )
+                        ], style={'marginBottom': '15px'}),
+                        
+                        html.Hr(style={'margin': '15px 0'}),
+                        
+                        # Pydantic form for multi-chart configuration
+                        html.Div([
+                            html.H6("Display Configuration"),
+                            multi_chart_form
                         ])
-                    ], span=5),
+                    ], style={'width': '35%', 'display': 'inline-block', 'verticalAlign': 'top', 'paddingRight': '20px'}),
                     
-                    dmc.Col([
-                        html.Div(id=self.ids.charts_display(self.aio_id), children=[
-                            dmc.Text("No charts to display.", align="center", color="dimmed", p="xl")
-                        ])
-                    ], span=7)
+                    # Right side: Chart editor container
+                    html.Div(id=self.ids.chart_editor_container(self.aio_id), children=[
+                        html.Div("Select or create a chart to start editing.", 
+                               style={'textAlign': 'center', 'color': '#666', 'padding': '20px'})
+                    ], style={'width': '63%', 'display': 'inline-block', 'marginLeft': '2%'})
                 ]),
                 
+                html.Hr(style={'margin': '20px 0'}),
+                
+                # Chart display area
+                html.Div(id=self.ids.charts_display(self.aio_id), children=[
+                    html.Div("No charts to display.", 
+                           style={'textAlign': 'center', 'color': '#666', 'padding': '40px'})
+                ], style={'width': '100%'}),
+            
                 # Hidden storage for charts data
                 html.Div(id=self.ids.charts_data(self.aio_id), style={'display': 'none'}, children="[]")
             ])
