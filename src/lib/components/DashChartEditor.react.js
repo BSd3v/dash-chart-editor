@@ -56,8 +56,12 @@ class DashChartEditor extends Component {
                 });
             }
             // adjusts if the filters dropped the data out, this keeps the chart editing properly
-            if (d.x.length == 0) d.x = ['']
-            if (d.y.length == 0) d.y = ['']
+            if (d.x) {
+                if (d.x.length == 0) d.x = ['']
+            }
+            if (d.y) {
+                if (d.y.length == 0) d.y = ['']
+            }
         });
         if (this.state.mounted || bypass) {
             this.updateOptions({

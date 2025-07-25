@@ -18,11 +18,11 @@ Keyword arguments:
 
     `annotateOptions` is a boolean | dict with keys:
 
-    - images (boolean; optional)
+    - text (boolean; optional)
 
     - shapes (boolean; optional)
 
-    - text (boolean; optional)
+    - images (boolean; optional)
 
 - config (dict; default {editable: True}):
     Plotly config options, listed here:
@@ -34,9 +34,9 @@ Keyword arguments:
 
     `controlOptions` is a boolean | dict with keys:
 
-    - menus (boolean; optional)
-
     - sliders (boolean; optional)
+
+    - menus (boolean; optional)
 
 - dataSources (dict with strings as keys and values of type list; optional):
     Input dataSources for driving the chart editors selections.
@@ -49,11 +49,11 @@ Keyword arguments:
     - data (list of dicts; optional):
         Output data of the chart editor.
 
-    - frames (list; optional):
-        Output frames of the chart editor.
-
     - layout (dict; optional):
         Output layout of the chart editor.
+
+    - frames (list; optional):
+        Output frames of the chart editor.
 
 - loadFigure (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     {data, layout, frames} given to the chart, used to populate
@@ -75,9 +75,9 @@ Keyword arguments:
 
     `structureOptions` is a boolean | dict with keys:
 
-    - subplots (boolean; optional)
-
     - traces (boolean; optional)
+
+    - subplots (boolean; optional)
 
     - transforms (boolean; optional)
 
@@ -89,17 +89,17 @@ Keyword arguments:
 
     `styleOptions` is a boolean | dict with keys:
 
-    - axes (boolean; optional)
-
-    - colorBars (boolean; optional)
-
     - general (boolean; optional)
 
-    - legend (boolean; optional)
+    - traces (boolean; optional)
+
+    - axes (boolean; optional)
 
     - maps (boolean; optional)
 
-    - traces (boolean; optional)
+    - legend (boolean; optional)
+
+    - colorBars (boolean; optional)
 
 - traceOptions (boolean | number | string | dict | list; optional):
     List of trace options to display."""

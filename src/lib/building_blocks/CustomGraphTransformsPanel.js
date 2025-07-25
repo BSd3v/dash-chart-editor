@@ -12,6 +12,7 @@ import {
 } from 'react-chart-editor';
 
 import CustomTransformAccordion from './CustomTransformAccordion';
+import CustomTraceAccordion from './CustomTraceAccordion';
 
 const AggregationSection = connectAggregationToTransform(PlotlySection);
 
@@ -65,11 +66,13 @@ Aggregations.plotly_editor_traits = {no_visibility_forcing: true};
 Aggregations.contextTypes = {
     fullContainer: PropTypes.object,
     localize: PropTypes.func,
+    dataSourceOptions: PropTypes.array,
+    container: PropTypes.object,
 };
 
 const CustomGraphTransformsPanel = (props, {localize: _}) => {
     return (
-        <TraceAccordion traceFilterCondition={(t) => t.type}>
+        <CustomTraceAccordion traceFilterCondition={(t) => t.type}>
             <CustomTransformAccordion>
                 <Radio
                     attr="enabled"
@@ -95,12 +98,15 @@ const CustomGraphTransformsPanel = (props, {localize: _}) => {
 
                 <Aggregations />
             </CustomTransformAccordion>
-        </TraceAccordion>
+        </CustomTraceAccordion>
     );
 };
 
 CustomGraphTransformsPanel.contextTypes = {
+    fullContainer: PropTypes.object,
     localize: PropTypes.func,
+    container: PropTypes.object,
+    dataSourceOptions: PropTypes.array,
 };
 
 export default CustomGraphTransformsPanel;
