@@ -16,11 +16,11 @@ import pandas as pd
 
 try:
     from dash_pydantic_form import ModelForm
+    from .models import ChartConfigModel
     PYDANTIC_FORM_AVAILABLE = True
 except ImportError:
     PYDANTIC_FORM_AVAILABLE = False
-
-from .models import ChartConfigModel
+    ChartConfigModel = None
 
 
 class ChartEditorAIO(html.Div):

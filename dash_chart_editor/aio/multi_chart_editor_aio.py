@@ -15,11 +15,11 @@ from plotly.subplots import make_subplots
 
 try:
     from dash_pydantic_form import ModelForm
+    from .models import MultiChartConfigModel
     PYDANTIC_FORM_AVAILABLE = True
 except ImportError:
     PYDANTIC_FORM_AVAILABLE = False
-
-from .models import MultiChartConfigModel
+    MultiChartConfigModel = None
 
 from .chart_editor_aio import ChartEditorAIO
 
