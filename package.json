@@ -29,7 +29,7 @@
   "author": "Bryan Schroeder <bryan.ri.schroeder@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "ramda": "^0.28.0"
+    "ramda": "^0.31.3"
   },
   "devDependencies": {
     "@babel/core": "^7.21.0",
