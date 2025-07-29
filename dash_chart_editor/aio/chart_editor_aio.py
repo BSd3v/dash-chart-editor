@@ -261,52 +261,45 @@ class ChartEditorAIO(html.Div):
             ], style={'marginBottom': '10px'})
         ])
 
-    # Static methods for callback registration
-    @staticmethod
-    @callback(
-        Output({"component": "ChartEditorAIO", "subcomponent": "chart", "aio_id": MATCH}, "figure"),
-        Output({"component": "ChartEditorAIO", "subcomponent": "figure_data", "aio_id": MATCH}, "children"),
-        [
-            Input({"component": "ChartEditorAIO", "subcomponent": "chart_type", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "data_source", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "x_column", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "y_column", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "color_column", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "size_column", "aio_id": MATCH}, "value"),
-            Input({"component": "ChartEditorAIO", "subcomponent": "title", "aio_id": MATCH}, "value"),
-        ],
-        prevent_initial_call=True
-    )
-    def update_chart(chart_type, data_source, x_col, y_col, color_col, size_col, title):
-        """Update chart based on user selections"""
-        # This would need access to the data_sources, which requires a different approach
-        # For now, return an empty figure
-        ctx = dash.callback_context
-        if not ctx.triggered:
-            return go.Figure(), ""
-        
-        # Get the AIO ID from the triggered component
-        aio_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        aio_id = eval(aio_id)['aio_id']
-        
-        # In a real implementation, we'd need to access the data_sources
-        # This is a limitation of the current AIO pattern - we need to store data globally
-        
-        fig = go.Figure()
-        fig.update_layout(title=title or "Chart")
-        
-        return fig, str(fig.to_dict())
 
-
-# Global callback for updating column controls when data source changes
-@callback(
-    Output({"component": "ChartEditorAIO", "subcomponent": "container", "aio_id": ALL}, "children"),
-    Input({"component": "ChartEditorAIO", "subcomponent": "data_source", "aio_id": ALL}, "value"),
-    State({"component": "ChartEditorAIO", "subcomponent": "container", "aio_id": ALL}, "children"),
-    prevent_initial_call=True
-)
-def update_column_options(data_sources, current_children):
-    """Update column selection options when data source changes"""
-    # This callback needs to be implemented in the application using the component
-    # as it requires access to the actual data
-    return dash.no_update
+    # @staticmethod
+    # @callback(
+    #     Output({"component": "ChartEditorAIO", "subcomponent": "chart", "aio_id": MATCH}, "figure"),
+    #     Output({"component": "ChartEditorAIO", "subcomponent": "figure_data", "aio_id": MATCH}, "children"),
+    #     [
+    #         Input({"component": "ChartEditorAIO", "subcomponent": "data_source", "aio_id": MATCH}, "value"),
+    #         Input(self.get_pydantic_form_data_store_id(MATCH), "data"),  # form data: list of chart configs
+    #     ],
+    #     prevent_initial_call=True
+    # )
+    # def update_chart_from_form(data_source, form_data_list):
+    #     # Access the data source (must be globally available)
+    #     df = global_data_sources.get(data_source)
+    #     if df is None or not form_data_list:
+    #         fig = go.Figure()
+    #         return fig, str(fig.to_dict())
+    #
+    #     fig = go.Figure()
+    #     for form_data in form_data_list:
+    #         chart_type = form_data.get("chart_type")
+    #         x_col = form_data.get("x_column")
+    #         y_col = form_data.get("y_column")
+    #         color_col = form_data.get("color_column")
+    #         size_col = form_data.get("size_column")
+    #         title = form_data.get("title")
+    #
+    #         if chart_type == "scatter":
+    #             fig.add_trace(go.Scatter(
+    #                 x=df[x_col] if x_col else None,
+    #                 y=df[y_col] if y_col else None,
+    #                 mode="markers",
+    #                 marker=dict(
+    #                     color=df[color_col] if color_col else None,
+    #                     size=df[size_col] if size_col else None
+    #                 ),
+    #                 name=title or "Scatter"
+    #             ))
+    #         # Add other chart types as needed...
+    #
+    #     fig.update_layout(title="Chart")
+    #     return fig, str(fig.to_dict())
