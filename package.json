@@ -55,7 +55,7 @@
     "react-dom": "^16.14.0",
     "style-loader": "^3.3.1",
     "styled-jsx": "^5.1.2",
-    "webpack": "^5.75.0",
+    "webpack": "^5.104.1",
     "webpack-cli": "^5.0.1",
     "react-chart-editor": "latest"
   },
