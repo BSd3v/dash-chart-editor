@@ -149,12 +149,29 @@ class PydanticChartEditor(html.Div):
         def doc_link_container(aio_id):
             return {"component": "PydanticChartEditor", "subcomponent": "doc_link_container", "aio_id": aio_id}
 
+        @staticmethod
+        def chart_select(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "chart_select", "aio_id": aio_id}
+
+        @staticmethod
+        def add_chart_btn(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "add_chart_btn", "aio_id": aio_id}
+
+        @staticmethod
+        def remove_chart_btn(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "remove_chart_btn", "aio_id": aio_id}
+
+        @staticmethod
+        def chart_states(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "chart_states", "aio_id": aio_id}
+
     def __init__(
         self,
         data_sources: Optional[Dict[str, pd.DataFrame]] = None,
         component_id: Optional[str] = None,
         excluded_kwargs: Optional[Set[str]] = None,
         show_doc_link: bool = True,
+        multi_chart: bool = True,
         **kwargs,
     ):
         """Create a PydanticChartEditor component.
@@ -169,6 +186,8 @@ class PydanticChartEditor(html.Div):
                 chart-type selector with links to the Plotly API reference for the selected
                 chart type, Plotly example docs, and the layout reference — matching the
                 Dashboard-Helper behaviour.  Set to ``False`` to hide these links.
+            multi_chart: When ``True`` (default), enables chart management controls (add/remove/
+                select chart) and stores separate chart state per selected chart, similar to RCE.
         """
         if component_id is None:
             component_id = str(uuid.uuid4())
@@ -180,6 +199,7 @@ class PydanticChartEditor(html.Div):
         }
         self._excluded_kwargs: Set[str] = set(excluded_kwargs or [])
         self.show_doc_link = show_doc_link
+        self.multi_chart = multi_chart
 
         super().__init__(id=self.ids.container(component_id), children=self._build_layout(), **kwargs)
 
@@ -192,6 +212,14 @@ class PydanticChartEditor(html.Div):
         default_chart = "scatter" if "scatter" in option_values else (option_values[0] if option_values else None)
         data_source_options = [{"label": name, "value": name} for name in self.data_sources]
         default_data = data_source_options[0]["value"] if data_source_options else None
+        initial_chart_states = {
+            "Chart 1": {
+                "chart_type": default_chart,
+                "data_source": default_data,
+                "form_data": {},
+                "layout_data": {},
+            }
+        }
 
         return [
             dmc.MantineProvider(
@@ -206,6 +234,26 @@ class PydanticChartEditor(html.Div):
                                         dmc.AccordionPanel(
                                             [
                                                 html.Label("Chart Type"),
+                                                html.Div(
+                                                    [
+                                                        html.Label("Charts", style={"marginBottom": "4px"}),
+                                                        dcc.Dropdown(
+                                                            id=self.ids.chart_select(self.component_id),
+                                                            options=[{"label": "Chart 1", "value": "Chart 1"}],
+                                                            value="Chart 1",
+                                                            clearable=False,
+                                                        ),
+                                                        html.Div(
+                                                            [
+                                                                html.Button("Add", id=self.ids.add_chart_btn(self.component_id),
+                                                                            style={"marginRight": "8px"}),
+                                                                html.Button("Remove", id=self.ids.remove_chart_btn(self.component_id)),
+                                                            ],
+                                                            style={"marginTop": "8px"},
+                                                        ),
+                                                    ],
+                                                    style={} if self.multi_chart else {"display": "none"},
+                                                ),
                                                 dcc.Dropdown(
                                                     id=self.ids.chart_type(self.component_id),
                                                     options=self.chart_options,
@@ -273,6 +321,7 @@ class PydanticChartEditor(html.Div):
                         id=self.ids.excluded_kwargs(self.component_id),
                         data=list(self._excluded_kwargs),
                     ),
+                    dcc.Store(id=self.ids.chart_states(self.component_id), data=initial_chart_states),
                 ],
                 style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
             ),
@@ -385,6 +434,102 @@ class PydanticChartEditor(html.Div):
 
     @staticmethod
     @callback(
+        Output(ids.chart_select(MATCH), "options"),
+        Output(ids.chart_select(MATCH), "value"),
+        Output(ids.chart_states(MATCH), "data"),
+        Input(ids.add_chart_btn(MATCH), "n_clicks"),
+        Input(ids.remove_chart_btn(MATCH), "n_clicks"),
+        State(ids.chart_select(MATCH), "value"),
+        State(ids.chart_states(MATCH), "data"),
+        prevent_initial_call=True,
+    )
+    def manage_charts(add_clicks, remove_clicks, selected_chart, chart_states):
+        """Manage add/remove/select chart in multi-chart mode."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return no_update, no_update, no_update
+
+        states = dict(chart_states or {})
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        is_add = '"subcomponent":"add_chart_btn"' in trigger
+        is_remove = '"subcomponent":"remove_chart_btn"' in trigger
+
+        if is_add:
+            idx = len(states) + 1
+            while f"Chart {idx}" in states:
+                idx += 1
+            new_name = f"Chart {idx}"
+            states[new_name] = {"chart_type": "scatter", "data_source": None, "form_data": {}, "layout_data": {}}
+            selected = new_name
+        elif is_remove and selected_chart and selected_chart in states:
+            states.pop(selected_chart, None)
+            if not states:
+                states["Chart 1"] = {"chart_type": "scatter", "data_source": None, "form_data": {}, "layout_data": {}}
+            selected = next(iter(states.keys()))
+        else:
+            return no_update, no_update, no_update
+
+        options = [{"label": name, "value": name} for name in states.keys()]
+        return options, selected, states
+
+    @staticmethod
+    @callback(
+        Output(ids.chart_type(MATCH), "value"),
+        Output(ids.data_source(MATCH), "value"),
+        Input(ids.chart_select(MATCH), "value"),
+        State(ids.chart_states(MATCH), "data"),
+        State(ids.data_source(MATCH), "options"),
+        prevent_initial_call=True,
+    )
+    def load_selected_chart(selected_chart, chart_states, data_source_options):
+        """Load chart_type/data_source for currently selected logical chart."""
+        states = chart_states or {}
+        cfg = states.get(selected_chart or "", {})
+        chart_type = cfg.get("chart_type") or "scatter"
+        ds_value = cfg.get("data_source")
+        if ds_value is None and data_source_options:
+            ds_value = data_source_options[0]["value"]
+        return chart_type, ds_value
+
+    @staticmethod
+    @callback(
+        Output(ModelForm.ids.form(MATCH, _PYDF_FORM_ID), "data-update", allow_duplicate=True),
+        Output(ModelForm.ids.form(MATCH, _PYDF_LAYOUT_FORM_ID), "data-update", allow_duplicate=True),
+        Input(ids.chart_select(MATCH), "value"),
+        State(ids.chart_states(MATCH), "data"),
+        prevent_initial_call=True,
+    )
+    def load_selected_chart_forms(selected_chart, chart_states):
+        """Load stored chart/layout form state when switching selected chart."""
+        cfg = (chart_states or {}).get(selected_chart or "", {})
+        return cfg.get("form_data", {}), cfg.get("layout_data", {})
+
+    @staticmethod
+    @callback(
+        Output(ids.chart_states(MATCH), "data", allow_duplicate=True),
+        Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data", allow_optional=True),
+        Input(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data", allow_optional=True),
+        Input(ids.chart_type(MATCH), "value"),
+        Input(ids.data_source(MATCH), "value"),
+        State(ids.chart_select(MATCH), "value"),
+        State(ids.chart_states(MATCH), "data"),
+        prevent_initial_call=True,
+    )
+    def persist_selected_chart_state(form_data, layout_data, chart_type, data_source, selected_chart, chart_states):
+        """Persist current selected chart state so multiple charts are supported."""
+        if not selected_chart:
+            return no_update
+        states = dict(chart_states or {})
+        cfg = dict(states.get(selected_chart, {}))
+        cfg["chart_type"] = chart_type
+        cfg["data_source"] = data_source
+        cfg["form_data"] = form_data or {}
+        cfg["layout_data"] = layout_data or {}
+        states[selected_chart] = cfg
+        return states
+
+    @staticmethod
+    @callback(
         Output(ids.doc_link_container(MATCH), "children"),
         Input(ids.chart_type(MATCH), "value"),
     )
@@ -459,7 +604,7 @@ class PydanticChartEditor(html.Div):
     @callback(
         Output(ids.chart(MATCH), "figure", allow_duplicate=True),
         Output(ids.debug(MATCH), "children", allow_duplicate=True),
-        Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
+        Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data", allow_optional=True),
         State(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
         State(ids.chart_type(MATCH), "value"),
         State(ids.data_source(MATCH), "value"),
@@ -568,6 +713,7 @@ def create_pydantic_chart_editor_app(
     port: int = 8054,
     excluded_kwargs: Optional[Set[str]] = None,
     show_doc_link: bool = True,
+    multi_chart: bool = True,
 ):
     app = dash.Dash(__name__)
     editor = PydanticChartEditor(
@@ -575,6 +721,7 @@ def create_pydantic_chart_editor_app(
         component_id="main-editor",
         excluded_kwargs=excluded_kwargs,
         show_doc_link=show_doc_link,
+        multi_chart=multi_chart,
     )
 
     app.layout = html.Div([
