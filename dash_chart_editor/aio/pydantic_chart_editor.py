@@ -11,6 +11,7 @@ from dash import dcc, html
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import dash_mantine_components as dmc
 from pydantic import BaseModel, Field, create_model
 
 from dash_pydantic_form import ModelForm
@@ -36,12 +37,14 @@ class PydanticChartEditor(html.Div):
         return [{"label": name, "value": name} for name in sorted(PX_CHART_METADATA.keys())]
 
     def _build_layout(self):
-        default_chart = self.chart_options[0]["value"] if self.chart_options else None
+        option_values = [item["value"] for item in self.chart_options]
+        default_chart = "scatter" if "scatter" in option_values else (option_values[0] if option_values else None)
         data_sources = [{"label": name, "value": name} for name in self.data_sources]
         default_data = data_sources[0]["value"] if data_sources else None
 
         return [
-            html.Div(
+            dmc.MantineProvider(
+                html.Div(
                 [
                     html.H4("Pydantic Chart Editor", style={"marginBottom": "20px"}),
                     html.Label("Chart Type"),
@@ -51,6 +54,7 @@ class PydanticChartEditor(html.Div):
                     html.Div(id=f"form-container-{self.component_id}", style={"marginTop": "12px"}),
                 ],
                 style={"width": "35%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"},
+                )
             ),
             html.Div(
                 [
@@ -151,12 +155,19 @@ class PydanticChartEditor(html.Div):
 
             metadata = PX_CHART_METADATA.get(chart_type, {})
             kwarg_names = metadata.get("kwargs", [])
+            column_candidates = set(metadata.get("column_kwargs", [])) | set(metadata.get("multi_column_kwargs", []))
 
             parsed = {
                 key: self._parse_scalar_value(value)
                 for key, value in (form_data or {}).items()
                 if key in kwarg_names
             }
+            has_column_selection = any(parsed.get(name) not in (None, "", []) for name in column_candidates)
+
+            if not has_column_selection:
+                placeholder = go.Figure()
+                placeholder.update_layout(title=f"Select at least one column option for {chart_type}.")
+                return placeholder, "Waiting for column selection..."
 
             try:
                 fig = self._to_figure(chart_type=chart_type, data_frame=df, kwargs=parsed)
