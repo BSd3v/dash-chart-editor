@@ -60,5 +60,8 @@ def test_numeric_constraints_defined():
     assert NUMERIC_CONSTRAINTS["opacity"]["type"] == float
     assert NUMERIC_CONSTRAINTS["opacity"]["ge"] == 0.0
     assert NUMERIC_CONSTRAINTS["opacity"]["le"] == 1.0
+    assert NUMERIC_CONSTRAINTS["opacity"]["step"] == 0.1
     assert "facet_col_wrap" in NUMERIC_CONSTRAINTS
     assert NUMERIC_CONSTRAINTS["facet_col_wrap"]["type"] == int
+    # int params should NOT have a step (they step by 1 by default)
+    assert "step" not in NUMERIC_CONSTRAINTS["facet_col_wrap"]

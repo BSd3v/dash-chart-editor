@@ -33,25 +33,26 @@ _ALL_PX_PARAM_NAMES: frozenset[str] = frozenset(
     for pname in signature(fn).parameters
 )
 
-# Well-known numeric parameters with their type and optional ge/le constraints.
+# Well-known numeric parameters with their type and optional ge/le/step constraints.
 # These override the inferred type (which often falls back to str) and are used
 # to generate number inputs with appropriate min/max bounds in the form.
+# Float fields also carry a step of 0.1 so the spinner increments sensibly.
 NUMERIC_CONSTRAINTS: dict[str, dict[str, Any]] = {
-    "opacity": {"type": float, "ge": 0.0, "le": 1.0},
+    "opacity": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
     "facet_col_wrap": {"type": int, "ge": 0},
-    "facet_row_spacing": {"type": float, "ge": 0.0, "le": 1.0},
-    "facet_col_spacing": {"type": float, "ge": 0.0, "le": 1.0},
+    "facet_row_spacing": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
+    "facet_col_spacing": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
     "size_max": {"type": int, "ge": 1},
     "nbins": {"type": int, "ge": 0},
     "nbinsx": {"type": int, "ge": 0},
     "nbinsy": {"type": int, "ge": 0},
-    "color_continuous_midpoint": {"type": float},
+    "color_continuous_midpoint": {"type": float, "step": 0.1},
     "maxdepth": {"type": int, "ge": -1},
     "start_angle": {"type": int, "ge": 0, "le": 360},
     "zoom": {"type": int, "ge": 0, "le": 20},
     "width": {"type": int, "ge": 100},   # minimum 100px to keep chart usable
     "height": {"type": int, "ge": 100},  # minimum 100px to keep chart usable
-    "hole": {"type": float, "ge": 0.0, "le": 1.0},
+    "hole": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
 }
 
 

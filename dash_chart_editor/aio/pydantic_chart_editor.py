@@ -213,7 +213,11 @@ class PydanticChartEditor(html.Div):
     @staticmethod
     def _to_figure(chart_type: str, data_frame: pd.DataFrame, chart_kwargs: dict[str, Any]) -> go.Figure:
         chart_fn = getattr(px, chart_type)
-        clean_kwargs = {k: v for k, v in chart_kwargs.items() if v not in (None, "")}
+        # Drop None, empty strings, and empty lists — all represent "not set" in the form UI
+        clean_kwargs = {
+            k: v for k, v in chart_kwargs.items()
+            if v is not None and v != "" and v != []
+        }
         return chart_fn(data_frame=data_frame, **clean_kwargs)
 
     @staticmethod
@@ -263,6 +267,7 @@ class PydanticChartEditor(html.Div):
 
             # Numeric params: use Annotated types with ge/le constraints so ModelForm
             # renders proper number inputs instead of a plain text box.
+            # Float fields also carry a step so the spinner increments in 0.1 intervals.
             if arg in NUMERIC_CONSTRAINTS:
                 nc = NUMERIC_CONSTRAINTS[arg]
                 num_type = nc["type"]
@@ -271,6 +276,8 @@ class PydanticChartEditor(html.Div):
                     field_kwargs["ge"] = nc["ge"]
                 if "le" in nc:
                     field_kwargs["le"] = nc["le"]
+                if "step" in nc:
+                    field_kwargs["json_schema_extra"] = {"step": nc["step"]}
                 # Exclude bool: in Python bool is a subclass of int, so isinstance(True, int) is True.
                 # We never want a boolean signature default to be used as a numeric default here.
                 num_default = sig_default if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool) else None
@@ -376,7 +383,8 @@ class PydanticChartEditor(html.Div):
             legend_update: dict[str, Any] = {}
             layout_update: dict[str, Any] = {}
             for key, val in layout_cfg.items():
-                if val is None:
+                # Skip blank/unset values — None, empty string, or empty list all mean "not set"
+                if val is None or val == "" or val == []:
                     continue
                 if key.startswith("legend_"):
                     legend_update[key[len("legend_"):]] = val
