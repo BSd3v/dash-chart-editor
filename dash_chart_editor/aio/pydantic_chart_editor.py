@@ -111,6 +111,11 @@ class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form."""
     _FORM_ID = _PYDF_FORM_ID
     _LAYOUT_FORM_ID = _PYDF_LAYOUT_FORM_ID
+    _COMMON_FIELDS = {
+        "x", "y", "color", "size", "symbol", "text",
+        "hover_name", "hover_data", "labels",
+        "title", "subtitle", "template", "width", "height",
+    }
 
     class ids:
         @staticmethod
@@ -381,6 +386,23 @@ class PydanticChartEditor(html.Div):
 
         return create_model(f"{chart_type.title()}Form", **fields)
 
+    @staticmethod
+    def _build_form_sections(kwargs: list[str]) -> list[FormSection]:
+        """Split chart kwargs into grouped sections for better UX."""
+        common = [k for k in kwargs if k in PydanticChartEditor._COMMON_FIELDS]
+        trendlines = [k for k in kwargs if k.startswith("trendline")]
+        grouped = set(common) | set(trendlines)
+        advanced = [k for k in kwargs if k not in grouped]
+
+        sections: list[FormSection] = []
+        if common:
+            sections.append(FormSection(name="common", fields=common, title="Common"))
+        if trendlines:
+            sections.append(FormSection(name="trendlines", fields=trendlines, title="Trendlines"))
+        if advanced:
+            sections.append(FormSection(name="advanced", fields=advanced, title="Advanced"))
+        return sections
+
     # ── Auto-wired AIO callbacks ──────────────────────────────────────────────
 
     @staticmethod
@@ -431,9 +453,19 @@ class PydanticChartEditor(html.Div):
         columns = list(df.columns) if isinstance(df, pd.DataFrame) else []
         aio_id = form_container_id["aio_id"]
         excluded = set(excluded_kwargs or [])
+        metadata = PX_CHART_METADATA.get(chart_type, {})
 
         model = PydanticChartEditor._build_form_model(chart_type, columns, excluded)
-        return ModelForm(item=model, aio_id=aio_id, form_id=PydanticChartEditor._FORM_ID)
+        sections = PydanticChartEditor._build_form_sections(metadata.get("kwargs", []))
+        # ModelForm expects form_layout=None when no sections exist; passing an empty
+        # AccordionFormLayout is unnecessary and renders extra wrapper markup.
+        form_layout = AccordionFormLayout(sections=sections, multiple=True) if sections else None
+        return ModelForm(
+            item=model,
+            aio_id=aio_id,
+            form_id=PydanticChartEditor._FORM_ID,
+            form_layout=form_layout,
+        )
 
     @staticmethod
     @callback(

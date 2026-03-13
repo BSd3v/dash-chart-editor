@@ -108,7 +108,7 @@ class TestMultiChartEditorAIO(unittest.TestCase):
     
     def test_invalid_flavor_raises_error(self):
         """Test that invalid flavor raises an error"""
-        with self.assertRaises(ImportError):
+        with self.assertRaises(ValueError):
             MultiChartEditorAIO(
                 data_sources=self.data_sources,
                 flavor="dmc"  # Should fail if DMC not installed

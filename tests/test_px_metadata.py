@@ -119,3 +119,15 @@ def test_doc_link_url_format():
     assert "plotly.com/python-api-reference" in url
     assert "scatter" in url
     assert url.endswith(".html")
+
+
+def test_form_sections_grouping():
+    """Chart properties should be grouped into Common / Trendlines / Advanced sections."""
+    sections = PydanticChartEditor._build_form_sections(PX_CHART_METADATA["scatter"]["kwargs"])
+    names = [s.name for s in sections]
+    by_name = {s.name: s for s in sections}
+    assert "common" in names
+    assert "trendlines" in names
+    assert "advanced" in names
+    assert "x" in by_name["common"].fields or "y" in by_name["common"].fields
+    assert "trendline" in by_name["trendlines"].fields
