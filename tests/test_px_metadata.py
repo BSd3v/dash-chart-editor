@@ -1,5 +1,7 @@
-from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS
-from dash_chart_editor.aio.pydantic_chart_editor import _RELAYOUT_TO_LAYOUT, PydanticChartEditor
+from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS, MAX_DESCRIPTION_LENGTH
+from dash_chart_editor.aio.pydantic_chart_editor import (
+    _RELAYOUT_TO_LAYOUT, _PX_API_BASE, PydanticChartEditor,
+)
 
 
 def test_scatter_metadata_contains_common_kwargs():
@@ -62,7 +64,7 @@ def test_param_descriptions_captured():
     assert isinstance(descs, dict)
     assert "x" in descs
     assert len(descs["x"]) > 0
-    assert len(descs["x"]) <= 200
+    assert len(descs["x"]) <= MAX_DESCRIPTION_LENGTH
 
 
 def test_numeric_constraints_defined():
@@ -100,12 +102,20 @@ def test_relayout_to_layout_map():
     assert "showlegend" in _RELAYOUT_TO_LAYOUT
 
 
-def test_linked_parameter_stored():
-    """PydanticChartEditor should accept and store a linked=False flag."""
+def test_show_doc_link_parameter_stored():
+    """PydanticChartEditor should accept show_doc_link=False and expose it as a public attribute."""
     import pandas as pd
     editor = PydanticChartEditor(
         data_sources={"df": pd.DataFrame({"a": [1, 2], "b": [3, 4]})},
         component_id="test-linked",
-        linked=False,
+        show_doc_link=False,
     )
-    assert editor._linked is False
+    assert editor.show_doc_link is False
+
+
+def test_doc_link_url_format():
+    """_PX_API_BASE should produce the correct Plotly API reference URL."""
+    url = _PX_API_BASE.format("scatter")
+    assert "plotly.com/python-api-reference" in url
+    assert "scatter" in url
+    assert url.endswith(".html")

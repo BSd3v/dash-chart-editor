@@ -22,8 +22,20 @@ from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
 
+# Plotly Express API reference URL pattern — used to build chart-type-specific doc links.
+# These mirror the links shown in Dashboard-Helper's "Chart Info" panel.
+_PX_API_BASE = "https://plotly.com/python-api-reference/generated/plotly.express.{}.html"
+_PX_EXAMPLES_URL = "https://plotly.com/python/"
+_LAYOUT_REF_URL = (
+    "https://plotly.com/python-api-reference/generated/plotly.graph_objects.Layout.html"
+)
+
 # Maps Plotly relayoutData keys → _LayoutConfig field names.
-# When linked=True, in-graph user edits are synced back to the layout form.
+# In-graph edits (title, legend position, background color, etc.) are synced back to the
+# layout form via the sync_relayout_to_form callback so the form and chart stay in step.
+# Axis-specific keys such as ``xaxis.title.text`` are handled separately by
+# _apply_relayout (which applies them directly to the figure) rather than through the
+# layout form, since the layout form does not have individual axis title fields.
 _RELAYOUT_TO_LAYOUT: dict[str, str] = {
     "title.text": "title",
     "showlegend": "showlegend",
@@ -136,15 +148,15 @@ class PydanticChartEditor(html.Div):
             return {"component": "PydanticChartEditor", "subcomponent": "excluded_kwargs", "aio_id": aio_id}
 
         @staticmethod
-        def linked(aio_id):
-            return {"component": "PydanticChartEditor", "subcomponent": "linked", "aio_id": aio_id}
+        def doc_link_container(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "doc_link_container", "aio_id": aio_id}
 
     def __init__(
         self,
         data_sources: Optional[Dict[str, pd.DataFrame]] = None,
         component_id: Optional[str] = None,
         excluded_kwargs: Optional[Set[str]] = None,
-        linked: bool = True,
+        show_doc_link: bool = True,
         **kwargs,
     ):
         """Create a PydanticChartEditor component.
@@ -155,10 +167,10 @@ class PydanticChartEditor(html.Div):
             excluded_kwargs: Set of chart kwarg names to hide from the form.  The developer
                 can use this to simplify the editor for their users (e.g. hide ``trendline``,
                 ``facet_row``, etc.).
-            linked: When ``True`` (default), user edits made directly on the chart (title,
-                axis labels, annotations via the editable graph) are synced back to the
-                layout form so the two stay in step.  Set to ``False`` to make the
-                relationship one-way (form → chart only).
+            show_doc_link: When ``True`` (default), a "Chart Info" panel is shown below the
+                chart-type selector with links to the Plotly API reference for the selected
+                chart type, Plotly example docs, and the layout reference — matching the
+                Dashboard-Helper behaviour.  Set to ``False`` to hide these links.
         """
         if component_id is None:
             component_id = str(uuid.uuid4())
@@ -169,7 +181,7 @@ class PydanticChartEditor(html.Div):
             name: df.to_dict("records") for name, df in self.data_sources.items()
         }
         self._excluded_kwargs: Set[str] = set(excluded_kwargs or [])
-        self._linked = linked
+        self.show_doc_link = show_doc_link
 
         super().__init__(id=self.ids.container(component_id), children=self._build_layout(), **kwargs)
 
@@ -194,6 +206,15 @@ class PydanticChartEditor(html.Div):
                             options=self.chart_options,
                             value=default_chart,
                             clearable=False,
+                        ),
+                        # Documentation links for the selected chart type.
+                        # Mirrors the "Chart Info" panel in Dashboard-Helper.
+                        # Visibility is controlled by the show_doc_link parameter.
+                        html.Div(
+                            id=self.ids.doc_link_container(self.component_id),
+                            style={"marginTop": "6px", "fontSize": "12px"}
+                            if self.show_doc_link
+                            else {"display": "none"},
                         ),
                         html.Label("Data Source", style={"marginTop": "12px"}),
                         dcc.Dropdown(
@@ -232,8 +253,6 @@ class PydanticChartEditor(html.Div):
                         id=self.ids.excluded_kwargs(self.component_id),
                         data=list(self._excluded_kwargs),
                     ),
-                    # linked flag: True means relayout edits sync back to the layout form
-                    dcc.Store(id=self.ids.linked(self.component_id), data=self._linked),
                 ],
                 style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
             ),
@@ -346,6 +365,36 @@ class PydanticChartEditor(html.Div):
 
     @staticmethod
     @callback(
+        Output(ids.doc_link_container(MATCH), "children"),
+        Input(ids.chart_type(MATCH), "value"),
+    )
+    def update_doc_links(chart_type):
+        """Update the documentation links panel when the chart type changes.
+
+        Mirrors the "Chart Info" accordion panel in Dashboard-Helper, providing
+        direct links to the Plotly API reference for the selected chart type,
+        the general Plotly example docs, and the layout reference.  The container
+        is hidden when ``show_doc_link=False`` (via CSS display:none), so this
+        callback fires either way but the output is never visible when disabled.
+        """
+        if not chart_type:
+            return []
+        api_url = _PX_API_BASE.format(chart_type)
+        link_style = {"color": "#7575dd", "marginRight": "8px", "textDecoration": "none"}
+        return html.Div(
+            [
+                html.Span("📖 "),
+                html.A("API Reference", href=api_url, target="_blank", style=link_style),
+                html.Span("·", style={"marginRight": "8px", "color": "#aaa"}),
+                html.A("Example Docs", href=_PX_EXAMPLES_URL, target="_blank", style=link_style),
+                html.Span("·", style={"marginRight": "8px", "color": "#aaa"}),
+                html.A("Layout Reference", href=_LAYOUT_REF_URL, target="_blank", style=link_style),
+            ],
+            style={"padding": "4px 0"},
+        )
+
+    @staticmethod
+    @callback(
         Output(ids.form_container(MATCH), "children"),
         Input(ids.chart_type(MATCH), "value"),
         Input(ids.data_source(MATCH), "value"),
@@ -404,23 +453,21 @@ class PydanticChartEditor(html.Div):
     @callback(
         Output(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
         Input(ids.chart(MATCH), "relayoutData"),
-        State(ids.linked(MATCH), "data"),
         State(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
         prevent_initial_call=True,
     )
-    def sync_relayout_to_form(relayout_data, linked, current_layout_data):
+    def sync_relayout_to_form(relayout_data, current_layout_data):
         """Sync in-graph edits (title, legend, bgcolor, etc.) back to the layout form.
 
-        This callback is active when ``linked=True`` (the default).  It reads the
-        ``relayoutData`` from the graph (which Plotly fires whenever the user edits
-        a chart element directly) and maps the changed keys to the corresponding
-        ``_LayoutConfig`` fields, then updates the layout form store so the form
-        and chart stay in sync.
-
-        When ``linked=False`` the function returns ``no_update`` so the form is not
-        modified by in-graph edits.
+        Plotly fires ``relayoutData`` whenever the user edits a chart element directly
+        (e.g. clicks the title to rename it, drags the legend, changes background colour).
+        This callback maps the changed keys to the corresponding ``_LayoutConfig`` fields
+        via ``_RELAYOUT_TO_LAYOUT`` and updates the layout form store so the form and
+        chart stay in step.  Keys not in the map (e.g. axis-specific settings, zoom/pan
+        range changes) are intentionally ignored here — ``_apply_relayout`` handles those
+        directly on the figure object instead.
         """
-        if not linked or not relayout_data:
+        if relayout_data is None or not relayout_data:
             return no_update
 
         updated = dict(current_layout_data or {})
@@ -480,9 +527,10 @@ class PydanticChartEditor(html.Div):
             # Re-apply any in-graph user edits (title, axis labels, annotations, etc.)
             # relayoutData contains only the delta of changes made by the user in the graph.
             # This covers relayout keys not captured by the layout form (e.g. axis tick settings,
-            # annotations).  When linked=True the layout form already has the synced values but
-            # _apply_relayout is a harmless no-op for those keys.
-            if relayout_data:
+            # annotations).  The layout form already has the synced values for keys in
+            # _RELAYOUT_TO_LAYOUT (via sync_relayout_to_form), so _apply_relayout is harmless
+            # for those — but it's a necessary fallback for all other relayout keys.
+            if relayout_data is not None and relayout_data:
                 _apply_relayout(fig, relayout_data)
 
             return fig, json.dumps({"chart_type": chart_type, "kwargs": parsed}, indent=2, default=str)
@@ -496,14 +544,14 @@ def create_pydantic_chart_editor_app(
     data_sources: Dict[str, pd.DataFrame],
     port: int = 8054,
     excluded_kwargs: Optional[Set[str]] = None,
-    linked: bool = True,
+    show_doc_link: bool = True,
 ):
     app = dash.Dash(__name__)
     editor = PydanticChartEditor(
         data_sources=data_sources,
         component_id="main-editor",
         excluded_kwargs=excluded_kwargs,
-        linked=linked,
+        show_doc_link=show_doc_link,
     )
 
     app.layout = html.Div([

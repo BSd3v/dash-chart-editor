@@ -56,6 +56,10 @@ NUMERIC_CONSTRAINTS: dict[str, dict[str, Any]] = {
     "hole": {"type": float, "ge": 0.0, "le": 1.0, "multiple_of": 0.1},
 }
 
+# Maximum length for parameter descriptions shown in the form as field tooltips.
+# Kept as a named constant so it can be easily adjusted.
+MAX_DESCRIPTION_LENGTH: int = 200
+
 
 def _iter_chart_functions():
     return [
@@ -174,9 +178,9 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
                 column_kwargs.append(param.name)
 
         # Build short descriptions from the parsed docstring for each param.
-        # Limit to 200 chars so form tooltips stay readable.
+        # Truncated to MAX_DESCRIPTION_LENGTH chars so form tooltips stay readable.
         param_descriptions: dict[str, str] = {
-            name: text[:200].rstrip(" ,.")
+            name: text[:MAX_DESCRIPTION_LENGTH].rstrip(" ,.")
             for name, text in param_docs.items()
             if name != "data_frame"
         }
