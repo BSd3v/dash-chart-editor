@@ -451,7 +451,7 @@ class PydanticChartEditor(html.Div):
 
     @staticmethod
     @callback(
-        Output(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
+        Output(ModelForm.ids.form(MATCH, _PYDF_LAYOUT_FORM_ID), "data-update"),
         Input(ids.chart(MATCH), "relayoutData"),
         State(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
         prevent_initial_call=True,
