@@ -56,6 +56,12 @@ def test_pydantic_chart_editor():
     assert app.layout is not None
     print("✓ PydanticChartEditor app creation works without manual callback registration")
 
+    # Test excluded_kwargs is accepted
+    from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditor
+    editor2 = PydanticChartEditor(data_sources=data_sources, component_id="excl-test", excluded_kwargs={"trendline", "facet_row"})
+    assert editor2 is not None
+    print("✓ excluded_kwargs parameter accepted")
+
 def test_separate_components():
     """Test that both components can be instantiated separately"""
     test_dcc_chart_editor()

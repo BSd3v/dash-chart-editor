@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from inspect import Parameter, getmembers, isfunction, signature
 from typing import Any
 
 from plotly.express import _chart_types, _doc
+
+# Internal helpers that should not appear as chart type options
+_INTERNAL_NAMES: frozenset[str] = frozenset({"make_figure", "make_docstring"})
 
 _COLUMN_PHRASES = (
     "either a name of a column in `data_frame`",
@@ -19,9 +23,15 @@ _MULTI_COLUMN_PHRASES = (
     _doc.colref_list_desc.lower(),
 )
 
+_OPTION_PATTERN = re.compile(r"[`'\"]([a-z_]+)[`'\"]")
+
 
 def _iter_chart_functions():
-    return getmembers(_chart_types, isfunction)
+    return [
+        (name, fn)
+        for name, fn in getmembers(_chart_types, isfunction)
+        if name not in _INTERNAL_NAMES
+    ]
 
 
 def _parse_param_docs(docstring: str) -> dict[str, str]:
@@ -58,6 +68,22 @@ def _infer_param_type(param: Parameter) -> type[Any]:
     return str
 
 
+def _get_fixed_options() -> dict[str, list[str]]:
+    """Return a mapping of param name -> list of valid string options based on _doc.docs."""
+    fixed: dict[str, list[str]] = {}
+    for param, docs in _doc.docs.items():
+        combined = " ".join(docs if isinstance(docs, list) else [docs])
+        if "one of" in combined.lower():
+            options = list(dict.fromkeys(_OPTION_PATTERN.findall(combined)))
+            if options:
+                fixed[param] = options
+    return fixed
+
+
+# Global mapping: param name -> list of allowed string values (for dropdown rendering)
+FIXED_OPTIONS: dict[str, list[str]] = _get_fixed_options()
+
+
 def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
     """Return metadata for each Plotly Express chart function.
 
@@ -75,6 +101,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
         column_kwargs: list[str] = []
         multi_column_kwargs: list[str] = []
         arg_types: dict[str, type[Any]] = {}
+        fixed_options: dict[str, list[str]] = {}
 
         for param in sig.parameters.values():
             if param.name == "data_frame":
@@ -84,6 +111,10 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
 
             kwargs.append(param.name)
             arg_types[param.name] = _infer_param_type(param)
+
+            # Record fixed options (finite enum-like choices) for this param
+            if param.name in FIXED_OPTIONS:
+                fixed_options[param.name] = FIXED_OPTIONS[param.name]
 
             details = param_docs.get(param.name, "")
             if param.name in {"x", "y"} and any(phrase in details for phrase in _MULTI_COLUMN_PHRASES):
@@ -101,6 +132,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
             "column_kwargs": column_kwargs,
             "multi_column_kwargs": multi_column_kwargs,
             "arg_types": arg_types,
+            "fixed_options": fixed_options,
         }
 
     return metadata
