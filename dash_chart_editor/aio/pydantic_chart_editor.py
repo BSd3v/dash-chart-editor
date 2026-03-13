@@ -18,11 +18,12 @@ from dash_pydantic_form import ModelForm
 
 from .px_metadata import PX_CHART_METADATA
 
+_PYDF_FORM_ID = "pydantic-chart-editor-form"
+
 
 class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form."""
-    _FORM_ID = "pydantic-chart-editor-form"
-    _DATA_SOURCES_BY_ID: Dict[str, Dict[str, pd.DataFrame]] = {}
+    _FORM_ID = _PYDF_FORM_ID
 
     class ids:
         @staticmethod
@@ -49,13 +50,19 @@ class PydanticChartEditor(html.Div):
         def debug(aio_id):
             return {"component": "PydanticChartEditor", "subcomponent": "debug", "aio_id": aio_id}
 
+        @staticmethod
+        def data_sources(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "data_sources", "aio_id": aio_id}
+
     def __init__(self, data_sources: Optional[Dict[str, pd.DataFrame]] = None, component_id: Optional[str] = None, **kwargs):
         if component_id is None:
             component_id = str(uuid.uuid4())
 
         self.component_id = component_id
         self.data_sources = data_sources or {}
-        self._DATA_SOURCES_BY_ID[self.component_id] = self.data_sources
+        self._serialized_data_sources = {
+            name: df.to_dict("records") for name, df in self.data_sources.items()
+        }
 
         super().__init__(id=self.ids.container(component_id), children=self._build_layout(), **kwargs)
 
@@ -87,6 +94,7 @@ class PydanticChartEditor(html.Div):
                 [
                     dcc.Graph(id=self.ids.chart(self.component_id), style={"height": "600px"}),
                     html.Pre(id=self.ids.debug(self.component_id), style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"}),
+                    dcc.Store(id=self.ids.data_sources(self.component_id), data=self._serialized_data_sources),
                 ],
                 style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
             ),
@@ -154,16 +162,17 @@ class PydanticChartEditor(html.Div):
         Output(ids.form_container(MATCH), "children"),
         Input(ids.chart_type(MATCH), "value"),
         Input(ids.data_source(MATCH), "value"),
-        State(ids.container(MATCH), "id"),
+        State(ids.data_sources(MATCH), "data"),
+        State(ids.form_container(MATCH), "id"),
     )
-    def render_form(chart_type, data_source, container_id):
+    def render_form(chart_type, data_source, serialized_data_sources, form_container_id):
         if not chart_type:
             return "Select a chart type to begin."
 
-        aio_id = container_id["aio_id"]
-        data_sources = PydanticChartEditor._DATA_SOURCES_BY_ID.get(aio_id, {})
-        df = data_sources.get(data_source)
+        records = (serialized_data_sources or {}).get(data_source, [])
+        df = pd.DataFrame(records) if records else None
         columns = list(df.columns) if isinstance(df, pd.DataFrame) else []
+        aio_id = form_container_id["aio_id"]
 
         model = PydanticChartEditor._build_form_model(chart_type, columns)
         return ModelForm(item=model, aio_id=aio_id, form_id=PydanticChartEditor._FORM_ID)
@@ -172,21 +181,20 @@ class PydanticChartEditor(html.Div):
     @callback(
         Output(ids.chart(MATCH), "figure"),
         Output(ids.debug(MATCH), "children"),
-        Input(ModelForm.ids.main(MATCH, _FORM_ID), "data"),
+        Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
         State(ids.chart_type(MATCH), "value"),
         State(ids.data_source(MATCH), "value"),
-        State(ids.container(MATCH), "id"),
+        State(ids.data_sources(MATCH), "data"),
         prevent_initial_call=True,
     )
-    def update_chart(form_data, chart_type, data_source, container_id):
+    def update_chart(form_data, chart_type, data_source, serialized_data_sources):
         if not chart_type or not data_source:
             return go.Figure(), "Select chart type and data source."
 
-        aio_id = container_id["aio_id"]
-        data_sources = PydanticChartEditor._DATA_SOURCES_BY_ID.get(aio_id, {})
-        df = data_sources.get(data_source)
-        if df is None:
+        records = (serialized_data_sources or {}).get(data_source, [])
+        if not records:
             return go.Figure(), f"Unknown data source: {data_source}"
+        df = pd.DataFrame(records)
 
         metadata = PX_CHART_METADATA.get(chart_type, {})
         kwarg_names = metadata.get("kwargs", [])
