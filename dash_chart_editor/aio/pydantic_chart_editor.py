@@ -14,6 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import dash_mantine_components as dmc
 from pydantic import BaseModel, Field, create_model
+from pydantic import ValidationError
 
 from dash_pydantic_form import ModelForm
 
@@ -21,7 +22,22 @@ from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
-_SHARED_LAYOUT_KEY = "__shared_layout__"
+
+
+class _ChartStateEntry(BaseModel):
+    """Single chart configuration entry for multi-chart pydantic editor."""
+
+    id: str
+    chart_type: Optional[str] = "scatter"
+    data_source: Optional[str] = None
+    form_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class _EditorState(BaseModel):
+    """Unified state model keeping a list of charts plus shared layout."""
+
+    charts: List[_ChartStateEntry] = Field(default_factory=list)
+    shared_layout: Dict[str, Any] = Field(default_factory=dict)
 
 # Plotly Express API reference URL pattern — used to build chart-type-specific doc links.
 # These mirror the links shown in Dashboard-Helper's "Chart Info" panel.
@@ -112,6 +128,37 @@ class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form."""
     _FORM_ID = _PYDF_FORM_ID
     _LAYOUT_FORM_ID = _PYDF_LAYOUT_FORM_ID
+
+    @staticmethod
+    def _state_from_data(data: Optional[dict]) -> _EditorState:
+        """Parse store payload into unified pydantic state model."""
+        if not data:
+            return _EditorState(charts=[_ChartStateEntry(id="Chart 1")])
+        try:
+            # Backward compatibility with previous dict-based format
+            if isinstance(data, dict) and "charts" not in data:
+                shared_layout = data.get("__shared_layout__", {})
+                charts = []
+                for name, cfg in data.items():
+                    if name == "__shared_layout__":
+                        continue
+                    charts.append(
+                        _ChartStateEntry(
+                            id=name,
+                            chart_type=cfg.get("chart_type", "scatter"),
+                            data_source=cfg.get("data_source"),
+                            form_data=cfg.get("form_data", {}),
+                        )
+                    )
+                return _EditorState(charts=charts or [_ChartStateEntry(id="Chart 1")], shared_layout=shared_layout)
+            state = _EditorState.model_validate(data)
+            return state if state.charts else _EditorState(charts=[_ChartStateEntry(id="Chart 1")])
+        except ValidationError:
+            return _EditorState(charts=[_ChartStateEntry(id="Chart 1")])
+
+    @staticmethod
+    def _state_to_data(state: _EditorState) -> dict:
+        return state.model_dump()
 
     class ids:
         @staticmethod
@@ -213,14 +260,19 @@ class PydanticChartEditor(html.Div):
         default_chart = "scatter" if "scatter" in option_values else (option_values[0] if option_values else None)
         data_source_options = [{"label": name, "value": name} for name in self.data_sources]
         default_data = data_source_options[0]["value"] if data_source_options else None
-        initial_chart_states = {
-            "Chart 1": {
-                "chart_type": default_chart,
-                "data_source": default_data,
-                "form_data": {},
-            },
-            _SHARED_LAYOUT_KEY: {},
-        }
+        initial_chart_states = self._state_to_data(
+            _EditorState(
+                charts=[
+                    _ChartStateEntry(
+                        id="Chart 1",
+                        chart_type=default_chart,
+                        data_source=default_data,
+                        form_data={},
+                    )
+                ],
+                shared_layout={},
+            )
+        )
 
         return [
             dmc.MantineProvider(
@@ -450,33 +502,31 @@ class PydanticChartEditor(html.Div):
         if not ctx.triggered:
             return no_update, no_update, no_update
 
-        states = dict(chart_states or {})
-        shared_layout = dict(states.get(_SHARED_LAYOUT_KEY, {}))
-        chart_keys = [k for k in states.keys() if k != _SHARED_LAYOUT_KEY]
+        state = PydanticChartEditor._state_from_data(chart_states)
+        chart_keys = [c.id for c in state.charts]
         trigger = ctx.triggered[0]["prop_id"].split(".")[0]
         is_add = '"subcomponent":"add_chart_btn"' in trigger
         is_remove = '"subcomponent":"remove_chart_btn"' in trigger
 
         if is_add:
             idx = len(chart_keys) + 1
-            while f"Chart {idx}" in states:
+            while f"Chart {idx}" in chart_keys:
                 idx += 1
             new_name = f"Chart {idx}"
-            states[new_name] = {"chart_type": "scatter", "data_source": None, "form_data": {}}
+            state.charts.append(_ChartStateEntry(id=new_name, chart_type="scatter", data_source=None, form_data={}))
             selected = new_name
-        elif is_remove and selected_chart and selected_chart in states:
-            states.pop(selected_chart, None)
-            chart_keys = [k for k in states.keys() if k != _SHARED_LAYOUT_KEY]
+        elif is_remove and selected_chart and selected_chart in chart_keys:
+            state.charts = [c for c in state.charts if c.id != selected_chart]
+            chart_keys = [c.id for c in state.charts]
             if not chart_keys:
-                states["Chart 1"] = {"chart_type": "scatter", "data_source": None, "form_data": {}}
-                chart_keys = ["Chart 1"]
+                state.charts = [_ChartStateEntry(id="Chart 1", chart_type="scatter", data_source=None, form_data={})]
+                chart_keys = [state.charts[0].id]
             selected = chart_keys[0]
         else:
             return no_update, no_update, no_update
 
-        states[_SHARED_LAYOUT_KEY] = shared_layout
-        options = [{"label": name, "value": name} for name in states.keys() if name != _SHARED_LAYOUT_KEY]
-        return options, selected, states
+        options = [{"label": c.id, "value": c.id} for c in state.charts]
+        return options, selected, PydanticChartEditor._state_to_data(state)
 
     @staticmethod
     @callback(
@@ -489,10 +539,10 @@ class PydanticChartEditor(html.Div):
     )
     def load_selected_chart(selected_chart, chart_states, data_source_options):
         """Load chart_type/data_source for currently selected logical chart."""
-        states = chart_states or {}
-        cfg = states.get(selected_chart or "", {})
-        chart_type = cfg.get("chart_type") or "scatter"
-        ds_value = cfg.get("data_source")
+        state = PydanticChartEditor._state_from_data(chart_states)
+        entry = next((c for c in state.charts if c.id == (selected_chart or "")), None)
+        chart_type = (entry.chart_type if entry else None) or "scatter"
+        ds_value = entry.data_source if entry else None
         if ds_value is None and data_source_options:
             ds_value = data_source_options[0]["value"]
         return chart_type, ds_value
@@ -507,10 +557,9 @@ class PydanticChartEditor(html.Div):
     )
     def load_selected_chart_forms(selected_chart, chart_states):
         """Load stored chart/layout form state when switching selected chart."""
-        states = chart_states or {}
-        cfg = states.get(selected_chart or "", {})
-        shared_layout = states.get(_SHARED_LAYOUT_KEY, {})
-        return cfg.get("form_data", {}), shared_layout
+        state = PydanticChartEditor._state_from_data(chart_states)
+        entry = next((c for c in state.charts if c.id == (selected_chart or "")), None)
+        return (entry.form_data if entry else {}), state.shared_layout
 
     @staticmethod
     @callback(
@@ -527,15 +576,17 @@ class PydanticChartEditor(html.Div):
         """Persist current selected chart state so multiple charts are supported."""
         if not selected_chart:
             return no_update
-        states = dict(chart_states or {})
+        state = PydanticChartEditor._state_from_data(chart_states)
         if layout_data:
-            states[_SHARED_LAYOUT_KEY] = layout_data
-        cfg = dict(states.get(selected_chart, {}))
-        cfg["chart_type"] = chart_type
-        cfg["data_source"] = data_source
-        cfg["form_data"] = form_data or {}
-        states[selected_chart] = cfg
-        return states
+            state.shared_layout = layout_data
+        entry = next((c for c in state.charts if c.id == selected_chart), None)
+        if entry is None:
+            entry = _ChartStateEntry(id=selected_chart)
+            state.charts.append(entry)
+        entry.chart_type = chart_type or "scatter"
+        entry.data_source = data_source
+        entry.form_data = form_data or {}
+        return PydanticChartEditor._state_to_data(state)
 
     @staticmethod
     @callback(
