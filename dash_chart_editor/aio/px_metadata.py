@@ -150,7 +150,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
         param_defaults: dict[str, Any] = {}
 
         for param in sig.parameters.values():
-            if param.name == "data_frame":
+            if param.name in ["data_frame", 'title', 'template']:
                 continue
             if param.kind not in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY):
                 continue

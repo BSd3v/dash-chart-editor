@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 import dash_mantine_components as dmc
 from pydantic import BaseModel, Field, create_model
 
-from dash_pydantic_form import ModelForm
+from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
 
 from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
@@ -103,10 +103,8 @@ class _LayoutConfig(BaseModel):
     legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(
         default=None, title="Legend Y Anchor",
         description="Vertical anchor point for the legend position.")
-    paper_bgcolor: Optional[str] = Field(default=None, title="Paper Background Color",
-                                          description="Background color of the paper (e.g. 'white', '#fff').")
-    plot_bgcolor: Optional[str] = Field(default=None, title="Plot Background Color",
-                                         description="Background color inside the axes.")
+    template: Optional[str] = Field(default=None, title="Template",
+                                   description="Plotly template to use for styling the chart.")
 
 
 class PydanticChartEditor(html.Div):
@@ -200,36 +198,58 @@ class PydanticChartEditor(html.Div):
                 html.Div(
                     [
                         html.H4("Chart Editor", style={"marginBottom": "20px"}),
-                        html.Label("Chart Type"),
-                        dcc.Dropdown(
-                            id=self.ids.chart_type(self.component_id),
-                            options=self.chart_options,
-                            value=default_chart,
-                            clearable=False,
+                        dmc.Accordion(
+                            children=[
+                                dmc.AccordionItem(
+                                    [
+                                        dmc.AccordionControl("Charts"),
+                                        dmc.AccordionPanel(
+                                            [
+                                                html.Label("Chart Type"),
+                                                dcc.Dropdown(
+                                                    id=self.ids.chart_type(self.component_id),
+                                                    options=self.chart_options,
+                                                    value=default_chart,
+                                                    clearable=False,
+                                                ),
+                                                html.Div(
+                                                    id=self.ids.doc_link_container(self.component_id),
+                                                    style={"marginTop": "6px", "fontSize": "12px"}
+                                                    if self.show_doc_link
+                                                    else {"display": "none"},
+                                                ),
+                                                html.Label("Data Source", style={"marginTop": "12px"}),
+                                                dcc.Dropdown(
+                                                    id=self.ids.data_source(self.component_id),
+                                                    options=data_source_options,
+                                                    value=default_data,
+                                                    clearable=False,
+                                                ),
+                                                html.Hr(style={"margin": "16px 0"}),
+                                                html.H6("Chart Properties", style={"marginBottom": "8px"}),
+                                                html.Div(id=self.ids.form_container(self.component_id)),
+                                            ]
+                                        ),
+                                    ],
+                                    value="charts",
+                                ),
+                                dmc.AccordionItem(
+                                    [
+                                        dmc.AccordionControl("Layout"),
+                                        dmc.AccordionPanel(
+                                            [
+                                                html.H6("Layout", style={"marginBottom": "8px"}),
+                                                ModelForm(item=_LayoutConfig, aio_id=self.component_id,
+                                                          form_id=_PYDF_LAYOUT_FORM_ID),
+                                            ]
+                                        ),
+                                    ],
+                                    value="layout",
+                                ),
+                            ],
+                            value=["charts", "layout"],
+                            multiple=True,
                         ),
-                        # Documentation links for the selected chart type.
-                        # Mirrors the "Chart Info" panel in Dashboard-Helper.
-                        # Visibility is controlled by the show_doc_link parameter.
-                        html.Div(
-                            id=self.ids.doc_link_container(self.component_id),
-                            style={"marginTop": "6px", "fontSize": "12px"}
-                            if self.show_doc_link
-                            else {"display": "none"},
-                        ),
-                        html.Label("Data Source", style={"marginTop": "12px"}),
-                        dcc.Dropdown(
-                            id=self.ids.data_source(self.component_id),
-                            options=data_source_options,
-                            value=default_data,
-                            clearable=False,
-                        ),
-                        html.Hr(style={"margin": "16px 0"}),
-                        html.H6("Chart Properties", style={"marginBottom": "8px"}),
-                        html.Div(id=self.ids.form_container(self.component_id)),
-                        html.Hr(style={"margin": "16px 0"}),
-                        html.H6("Layout", style={"marginBottom": "8px"}),
-                        # Render layout form in layout (not via callback) so its Store exists on load
-                        ModelForm(item=_LayoutConfig, aio_id=self.component_id, form_id=_PYDF_LAYOUT_FORM_ID),
                     ],
                     style={"width": "35%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"},
                 )
