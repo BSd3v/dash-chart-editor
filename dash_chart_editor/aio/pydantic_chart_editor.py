@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any, Dict, List, Literal, Optional, Set
 
@@ -20,6 +21,33 @@ from .px_metadata import PX_CHART_METADATA
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
+
+
+def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
+    """Apply user in-graph edits (from relayoutData) back onto a freshly rendered figure.
+
+    Plotly's relayoutData contains key-value pairs using dot-notation for nested layout
+    properties (e.g. ``"xaxis.title.text": "my label"``, ``"title.text": "My Chart"``).
+    This helper maps those back onto the figure so that user edits survive a chart re-render.
+
+    Note: ``autosize``, ``dragmode``, and zoom/pan viewport keys are intentionally skipped
+    because they reflect transient interaction state rather than intentional content edits.
+    """
+    _SKIP_PREFIXES = ("dragmode", "autosize", "scene")
+    _AXIS_RANGE_RE = re.compile(r"^[xy]axis\d*\.range")
+
+    for key, value in relayout_data.items():
+        if _AXIS_RANGE_RE.match(key) or any(key.startswith(p) for p in _SKIP_PREFIXES):
+            continue
+        # Map dot-notation "a.b.c" → nested dict path on layout
+        parts = key.split(".")
+        target = fig.layout
+        try:
+            for part in parts[:-1]:
+                target = getattr(target, part)
+            setattr(target, parts[-1], value)
+        except (AttributeError, TypeError):
+            pass  # gracefully skip unsupported keys
 
 
 class _LayoutConfig(BaseModel):
@@ -146,7 +174,14 @@ class PydanticChartEditor(html.Div):
             ),
             html.Div(
                 [
-                    dcc.Graph(id=self.ids.chart(self.component_id), style={"height": "600px"}),
+                    dcc.Graph(
+                        id=self.ids.chart(self.component_id),
+                        style={"height": "600px"},
+                        config={
+                            "editable": True,       # allow in-chart title/axis/annotation editing
+                            "displayModeBar": True,
+                        },
+                    ),
                     html.Pre(
                         id=self.ids.debug(self.component_id),
                         style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
@@ -263,11 +298,12 @@ class PydanticChartEditor(html.Div):
         State(ids.chart_type(MATCH), "value"),
         State(ids.data_source(MATCH), "value"),
         State(ids.data_sources(MATCH), "data"),
+        State(ids.chart(MATCH), "relayoutData"),
         prevent_initial_call=True,
     )
-    def update_chart_from_layout(layout_data, form_data, chart_type, data_source, serialized_data_sources):
+    def update_chart_from_layout(layout_data, form_data, chart_type, data_source, serialized_data_sources, relayout_data):
         return PydanticChartEditor._render_chart(
-            form_data, layout_data, chart_type, data_source, serialized_data_sources
+            form_data, layout_data, chart_type, data_source, serialized_data_sources, relayout_data
         )
 
     @staticmethod
@@ -279,15 +315,16 @@ class PydanticChartEditor(html.Div):
         State(ids.chart_type(MATCH), "value"),
         State(ids.data_source(MATCH), "value"),
         State(ids.data_sources(MATCH), "data"),
+        State(ids.chart(MATCH), "relayoutData"),
         prevent_initial_call=True,
     )
-    def update_chart(form_data, layout_data, chart_type, data_source, serialized_data_sources):
+    def update_chart(form_data, layout_data, chart_type, data_source, serialized_data_sources, relayout_data):
         return PydanticChartEditor._render_chart(
-            form_data, layout_data, chart_type, data_source, serialized_data_sources
+            form_data, layout_data, chart_type, data_source, serialized_data_sources, relayout_data
         )
 
     @staticmethod
-    def _render_chart(form_data, layout_data, chart_type, data_source, serialized_data_sources):
+    def _render_chart(form_data, layout_data, chart_type, data_source, serialized_data_sources, relayout_data=None):
         if not chart_type or not data_source:
             return go.Figure(), "Select chart type and data source."
 
@@ -315,7 +352,7 @@ class PydanticChartEditor(html.Div):
         try:
             fig = PydanticChartEditor._to_figure(chart_type=chart_type, data_frame=df, chart_kwargs=parsed)
 
-            # Apply layout settings
+            # Apply pydantic layout panel settings
             layout_cfg = layout_data or {}
             legend_update: dict[str, Any] = {}
             layout_update: dict[str, Any] = {}
@@ -331,6 +368,11 @@ class PydanticChartEditor(html.Div):
                 layout_update["legend"] = legend_update
             if layout_update:
                 fig.update_layout(**layout_update)
+
+            # Re-apply any in-graph user edits (title, axis labels, annotations, etc.)
+            # relayoutData contains only the delta of changes made by the user in the graph.
+            if relayout_data:
+                _apply_relayout(fig, relayout_data)
 
             return fig, json.dumps({"chart_type": chart_type, "kwargs": parsed}, indent=2, default=str)
         except Exception as exc:  # pragma: no cover - UI feedback path
