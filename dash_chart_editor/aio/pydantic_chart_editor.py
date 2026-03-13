@@ -21,6 +21,7 @@ from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
+_SHARED_LAYOUT_KEY = "__shared_layout__"
 
 # Plotly Express API reference URL pattern — used to build chart-type-specific doc links.
 # These mirror the links shown in Dashboard-Helper's "Chart Info" panel.
@@ -217,8 +218,8 @@ class PydanticChartEditor(html.Div):
                 "chart_type": default_chart,
                 "data_source": default_data,
                 "form_data": {},
-                "layout_data": {},
-            }
+            },
+            _SHARED_LAYOUT_KEY: {},
         }
 
         return [
@@ -450,26 +451,31 @@ class PydanticChartEditor(html.Div):
             return no_update, no_update, no_update
 
         states = dict(chart_states or {})
+        shared_layout = dict(states.get(_SHARED_LAYOUT_KEY, {}))
+        chart_keys = [k for k in states.keys() if k != _SHARED_LAYOUT_KEY]
         trigger = ctx.triggered[0]["prop_id"].split(".")[0]
         is_add = '"subcomponent":"add_chart_btn"' in trigger
         is_remove = '"subcomponent":"remove_chart_btn"' in trigger
 
         if is_add:
-            idx = len(states) + 1
+            idx = len(chart_keys) + 1
             while f"Chart {idx}" in states:
                 idx += 1
             new_name = f"Chart {idx}"
-            states[new_name] = {"chart_type": "scatter", "data_source": None, "form_data": {}, "layout_data": {}}
+            states[new_name] = {"chart_type": "scatter", "data_source": None, "form_data": {}}
             selected = new_name
         elif is_remove and selected_chart and selected_chart in states:
             states.pop(selected_chart, None)
-            if not states:
-                states["Chart 1"] = {"chart_type": "scatter", "data_source": None, "form_data": {}, "layout_data": {}}
-            selected = next(iter(states.keys()))
+            chart_keys = [k for k in states.keys() if k != _SHARED_LAYOUT_KEY]
+            if not chart_keys:
+                states["Chart 1"] = {"chart_type": "scatter", "data_source": None, "form_data": {}}
+                chart_keys = ["Chart 1"]
+            selected = chart_keys[0]
         else:
             return no_update, no_update, no_update
 
-        options = [{"label": name, "value": name} for name in states.keys()]
+        states[_SHARED_LAYOUT_KEY] = shared_layout
+        options = [{"label": name, "value": name} for name in states.keys() if name != _SHARED_LAYOUT_KEY]
         return options, selected, states
 
     @staticmethod
@@ -501,8 +507,10 @@ class PydanticChartEditor(html.Div):
     )
     def load_selected_chart_forms(selected_chart, chart_states):
         """Load stored chart/layout form state when switching selected chart."""
-        cfg = (chart_states or {}).get(selected_chart or "", {})
-        return cfg.get("form_data", {}), cfg.get("layout_data", {})
+        states = chart_states or {}
+        cfg = states.get(selected_chart or "", {})
+        shared_layout = states.get(_SHARED_LAYOUT_KEY, {})
+        return cfg.get("form_data", {}), shared_layout
 
     @staticmethod
     @callback(
@@ -520,11 +528,12 @@ class PydanticChartEditor(html.Div):
         if not selected_chart:
             return no_update
         states = dict(chart_states or {})
+        if layout_data:
+            states[_SHARED_LAYOUT_KEY] = layout_data
         cfg = dict(states.get(selected_chart, {}))
         cfg["chart_type"] = chart_type
         cfg["data_source"] = data_source
         cfg["form_data"] = form_data or {}
-        cfg["layout_data"] = layout_data or {}
         states[selected_chart] = cfg
         return states
 
