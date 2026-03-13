@@ -1,346 +1,180 @@
-from dash import html, dcc, callback, Output, Input, State, MATCH, ctx
-import plotly.express as px
-import plotly.graph_objs as go
-from dash_pydantic_form import ModelForm, TabsFormLayout, FormSection
-from pydantic import BaseModel, Field, create_model
-from typing import List, Optional, Dict, Any, Literal
-import dash_mantine_components as dmc
-import inspect
-import pandas as pd
-import re
+"""Standalone chart editor backed by dash-pydantic-form."""
+
+from __future__ import annotations
+
 import json
+import uuid
+from typing import Any, Dict, List, Literal, Optional
 
-df_cols = ['color', 'size', 'x', 'y', 'z', 'values', 'labels', 'lat', 'lon', 'path',
-           'facet_row', 'facet_col']
+import dash
+from dash import dcc, html
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from pydantic import BaseModel, Field, create_model
 
-exclude = ['template', 'width', 'height', 'title']
+from dash_pydantic_form import ModelForm
 
-def infer_param_type(param, param_obj, doc):
-    # Try to get type from annotation
-    if param_obj.annotation != inspect.Parameter.empty:
-        return param_obj.annotation
-    # Try to infer from default value
-    if param_obj.default != inspect.Parameter.empty and param_obj.default is not None:
-        return type(param_obj.default)
-    # Fallback: parse docstring for type
-    match = re.search(rf"{param}\s*:\s*([^\n]+)", doc)
-    if param in df_cols:
-        if param == 'path':
-            return list
-        return str
-    if match:
-        doc_type = match.group(1).split(',')[0].strip().lower()
-        # Map common docstring types to Python types
-        if 'str' in doc_type or 'string' in doc_type:
-            return str
-        if 'int' in doc_type or 'integer' in doc_type:
-            return int
-        if 'float' in doc_type or 'number' in doc_type:
-            return float
-        if 'bool' in doc_type or 'boolean' in doc_type:
-            return bool
-        if 'list' in doc_type or 'array' in doc_type:
-            return list
-        if 'dict' in doc_type or 'mapping' in doc_type:
-            return dict
-    # Default fallback
-    return str
+from .px_metadata import PX_CHART_METADATA
 
-def get_px_chart_options():
-    chart_options = {}
-    for chart_name in px.__all__:
-        chart_func = getattr(px, chart_name)
-        if callable(chart_func):
-            sig = inspect.signature(chart_func)
-            # Exclude 'data_frame' and 'args'/'kwargs'
-            params = [
-                p.name for p in sig.parameters.values()
-                if p.name != 'data_frame' and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
-            ]
-            chart_options[chart_name] = params
-    return chart_options
 
-def classify_px_args_with_types():
-    major_keywords = ['data', 'column', 'axis', 'group', 'value', 'label', 'category', 'dimension']
-    chart_options = get_px_chart_options()
-    major_args = {}
-    style_args = {}
-    facet_args = {}
+class PydanticChartEditor(html.Div):
+    """Standalone chart editor using dash-pydantic-form."""
 
-    for chart_name, params in chart_options.items():
-        chart_func = getattr(px, chart_name)
-        doc = chart_func.__doc__ or ""
-        sig = inspect.signature(chart_func)
-        for param in params:
-            param_obj = sig.parameters.get(param)
-            param_type = infer_param_type(param, param_obj, doc)
-            match = re.search(rf"{param}\s*:\s*.*?\n\s+(.*?)(?=\n\S|$)", doc, re.DOTALL)
-            desc = match.group(1).lower() if match else ""
-            if param in exclude:
+    def __init__(self, data_sources: Optional[Dict[str, pd.DataFrame]] = None, component_id: Optional[str] = None, **kwargs):
+        if component_id is None:
+            component_id = str(uuid.uuid4())
+
+        self.component_id = component_id
+        self.data_sources = data_sources or {}
+        self._form_id = f"pydantic-chart-editor-form-{component_id}"
+
+        super().__init__(id=f"pydantic-chart-editor-{component_id}", children=self._build_layout(), **kwargs)
+
+    @property
+    def chart_options(self):
+        return [{"label": name, "value": name} for name in sorted(PX_CHART_METADATA.keys())]
+
+    def _build_layout(self):
+        default_chart = self.chart_options[0]["value"] if self.chart_options else None
+        data_sources = [{"label": name, "value": name} for name in self.data_sources]
+        default_data = data_sources[0]["value"] if data_sources else None
+
+        return [
+            html.Div(
+                [
+                    html.H4("Pydantic Chart Editor", style={"marginBottom": "20px"}),
+                    html.Label("Chart Type"),
+                    dcc.Dropdown(id=f"chart-type-{self.component_id}", options=self.chart_options, value=default_chart, clearable=False),
+                    html.Label("Data Source", style={"marginTop": "12px"}),
+                    dcc.Dropdown(id=f"data-source-{self.component_id}", options=data_sources, value=default_data, clearable=False),
+                    html.Div(id=f"form-container-{self.component_id}", style={"marginTop": "12px"}),
+                ],
+                style={"width": "35%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"},
+            ),
+            html.Div(
+                [
+                    dcc.Graph(id=f"chart-{self.component_id}", style={"height": "600px"}),
+                    html.Pre(id=f"debug-{self.component_id}", style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"}),
+                ],
+                style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
+            ),
+        ]
+
+    @staticmethod
+    def _parse_scalar_value(value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return None
+        if text.lower() in {"true", "false"}:
+            return text.lower() == "true"
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return value
+
+    @staticmethod
+    def _to_figure(chart_type: str, data_frame: pd.DataFrame, kwargs: dict[str, Any]) -> go.Figure:
+        chart_fn = getattr(px, chart_type)
+        clean_kwargs = {k: v for k, v in kwargs.items() if v not in (None, "")}
+        return chart_fn(data_frame=data_frame, **clean_kwargs)
+
+    def _build_form_model(self, chart_type: str, columns: List[str]) -> type[BaseModel]:
+        metadata = PX_CHART_METADATA[chart_type]
+        column_kwargs = set(metadata["column_kwargs"])
+        multi_column_kwargs = set(metadata["multi_column_kwargs"])
+
+        fields: dict[str, tuple[Any, Any]] = {}
+        literal_columns = tuple(columns)
+
+        for arg in metadata["kwargs"]:
+            title = arg.replace("_", " ").title()
+
+            if arg in multi_column_kwargs:
+                if literal_columns:
+                    field_type = Optional[List[Literal[literal_columns]]]  # type: ignore[valid-type]
+                else:
+                    field_type = Optional[List[str]]
+                fields[arg] = (field_type, Field(default=None, title=title))
                 continue
-            if 'facet' in param:
-                facet_args[param] = param_type
-            elif param in ['color', 'size', 'x', 'y', 'z', 'values', 'labels', 'lat', 'lon', 'path']:
-                major_args[param] = param_type
+
+            if arg in column_kwargs:
+                if literal_columns:
+                    field_type = Optional[Literal[literal_columns]]  # type: ignore[valid-type]
+                else:
+                    field_type = Optional[str]
+                fields[arg] = (field_type, Field(default=None, title=title))
+                continue
+
+            inferred = metadata["arg_types"].get(arg, str)
+            if inferred in (bool, int, float, dict, list, str):
+                field_type = Optional[inferred]
             else:
-                style_args[param] = param_type
-    return major_args, style_args, facet_args
+                field_type = Optional[str]
+            fields[arg] = (field_type, Field(default=None, title=title))
 
-major_props, style_props, facet_props = classify_px_args_with_types()
+        return create_model(f"{chart_type.title()}Form", **fields)
 
-from enum import Enum
-# Dynamically get all trace types from plotly.graph_objs
-def get_trace_types():
-    return [
-        name for name in px.__all__
-    ]
-
-# Create an Enum for chart types
-ChartTypeEnum = Enum(
-    "ChartTypeEnum",
-    {name.lower(): name.lower() for name in get_trace_types()}
-)
-
-
-def render_chart(form_data, df):
-    traces = form_data["structure"].get("traces", [])
-    # Check for facet usage
-    facet_charts = [
-        chart for chart in traces
-        if chart.get("facet", {}).get('facet_row') or chart.get("facet", {}).get('facet_col')
-    ]
-    if facet_charts and len(traces) > 1:
-        raise ValueError("Only one chart is supported when using facets (facet_row or facet_col).")
-
-    fig = go.Figure()
-    for chart in traces:
-        chart_type = chart.get("name")
-        trace_args = chart.copy()
-        trace_args.pop("name", None)
-        px_func = getattr(px, chart_type)
-        major_args = chart.get("major", {}) or {}
-        style_args = chart.get("style", {}) or {}
-        facet_args = chart.get("facet", {}) or {}
-        valid_fields = set(PX_FIELD_VISIBILITY.get(chart_type, []))
-        # Merge and filter by valid fields and non-None values
-        px_args = {k: v for k, v in {**major_args, **style_args, **facet_args}.items() if k in valid_fields and v is not None and v != ""}
-        px_fig = px_func(df, **px_args)
-        for trace in px_fig.data:
-            fig.add_trace(trace)
-        if facet_charts:
-            # If facets are used, we only take the first chart's layout
-            fig.update_layout(px_fig.layout)
-            break
-
-    layout = form_data.get("layout", {})
-    fig.update_layout(
-        title=layout.get("title", ""),
-        height=layout.get("height", 600),
-        width=layout.get("width", 900)
-    )
-
-    for ann in form_data.get("annotations", []):
-        fig.add_annotation(
-            text=ann.get("text", ""),
-            x=ann.get("x", 0),
-            y=ann.get("y", 0),
-            showarrow=True
+    def register_callbacks(self, app):
+        @app.callback(
+            dash.Output(f"form-container-{self.component_id}", "children"),
+            dash.Input(f"chart-type-{self.component_id}", "value"),
+            dash.Input(f"data-source-{self.component_id}", "value"),
         )
+        def render_form(chart_type, data_source):
+            if not chart_type:
+                return "Select a chart type to begin."
 
-    return fig
+            df = self.data_sources.get(data_source)
+            columns = list(df.columns) if isinstance(df, pd.DataFrame) else []
+            model = self._build_form_model(chart_type, columns)
 
-import inspect
+            return ModelForm(item=model, aio_id=self.component_id, form_id=self._form_id)
 
-PX_FIELD_VISIBILITY = get_px_chart_options()
-
-def visible_for_field(field_name):
-    # List all chart types that support this field
-    valid_charts = [k for k, v in PX_FIELD_VISIBILITY.items() if field_name in v]
-    return [('_parent_:name', 'in', valid_charts)]
-
-def make_field(k, v, df):
-    if k in df_cols:
-        # Restrict to columns in df
-        if df is None or df.empty:
-            return (Optional[v], Field(None, title=k.replace('_', ' ').title(), repr_kwargs=dict(visible=visible_for_field(k))))
-
-        choices = tuple(df.columns) if df is not None else ()
-        if k == 'path':
-            # For 'path', allow multiple selections from df columns
-            if choices:
-                return (
-                    List[Literal[choices]],
-                    Field(
-                        None,
-                        title=k.replace('_', ' ').title(),
-                        repr_kwargs=dict(visible=visible_for_field(k)),
-                        fields_repr={"type": "MultiSelect"}
-                    )
-                )
-            else:
-                return (
-                    Optional[List[str]],
-                    Field(
-                        None,
-                        title=k.replace('_', ' ').title(),
-                        repr_kwargs=dict(visible=visible_for_field(k)),
-                        fields_repr={"type": "MultiSelect"}
-                    )
-                )
-        return (Literal[choices],
-                Field(None, title=k.replace('_', ' ').title(),
-                      repr_kwargs=dict(visible=visible_for_field(k))))
-    else:
-        return (Optional[v], Field(None, title=k.replace('_', ' ').title(), repr_kwargs=dict(visible=visible_for_field(k))))
-
-def CreateChartModel(aio_id, df, old_data):
-    # Build fields for major and style props
-    major_fields = {k: make_field(k, v, df) for k, v in major_props.items()}
-    style_fields = {k: make_field(k, v, df) for k, v in style_props.items()}
-    facet_fields = {k: make_field(k, v, df) for k, v in facet_props.items()}
-
-    # Create models
-    MajorChartConfig = create_model('MajorChartConfig', **major_fields)
-    StyleChartConfig = create_model('StyleChartConfig', **style_fields)
-    FacetChartConfig = create_model('FacetChartConfig', **facet_fields)
-
-    # Optionally, combine them in a parent model
-    ChartConfig = create_model(
-        'ChartConfig',
-        name=(ChartTypeEnum, Field(..., title="Chart Type", repr_kwargs={"searchable": True})),
-        major=(MajorChartConfig, Field(...,title="Common Chart Properties")),
-        style=(StyleChartConfig, Field(..., title="Other Chart Properties", input_kwargs={"default_open": False})),
-        facet=(Optional[FacetChartConfig], Field(None, title="Facet Properties", input_kwargs={"default_open": False})),
-    )
-
-    class LayoutConfig(BaseModel):
-        title: Optional[str] = Field(None, title="Figure Title")
-        height: Optional[int] = Field(600, title="Height")
-        width: Optional[int] = Field(900, title="Width")
-
-    class AnnotationConfig(BaseModel):
-        text: str = Field(..., title="Text")
-        x: float = Field(..., title="X Position")
-        y: float = Field(..., title="Y Position")
-
-    class StructureOptions(BaseModel):
-        subplots: bool = Field(True, title="Subplots")
-        traces: List[ChartConfig] = Field(title="Charts")
-        transforms: bool = Field(False, title="Transforms")
-
-    class EditorFormModel(BaseModel):
-        structure: StructureOptions
-        layout: Optional[LayoutConfig] = Field(default_factory=LayoutConfig, title="Layout")
-        annotations: List[AnnotationConfig] = Field(default_factory=list, title="Annotations")
-
-    if old_data:
-        # Use old_data to populate the model if available
-        new_form = EditorFormModel(**old_data)
-    else:
-        new_form = EditorFormModel
-
-    model_from = ModelForm(
-        new_form,
-        aio_id=aio_id,
-        form_id='pydantic-chart-editor-form',
-        form_layout=TabsFormLayout(
-            sections=[
-                FormSection(
-                    name="Structure",
-                    fields=[
-                        "structure",
-                        # "transforms"
-                    ]
-                ),
-                FormSection(
-                    name="Style",
-                    fields=[
-                        "layout",
-                    ]
-                ),
-                FormSection(
-                    name="Annotate",
-                    fields=[
-                        "annotations",
-                        # "text",
-                        # "shapes",
-                        # "images"
-                    ]
-                )
-            ],
-            render_kwargs={"orientation": "vertical"}
+        @app.callback(
+            dash.Output(f"chart-{self.component_id}", "figure"),
+            dash.Output(f"debug-{self.component_id}", "children"),
+            dash.Input(ModelForm.ids.main(self.component_id, self._form_id), "data"),
+            dash.State(f"chart-type-{self.component_id}", "value"),
+            dash.State(f"data-source-{self.component_id}", "value"),
+            prevent_initial_call=True,
         )
-    )
+        def update_chart(form_data, chart_type, data_source):
+            if not chart_type or not data_source:
+                return go.Figure(), "Select chart type and data source."
 
-    return model_from
+            df = self.data_sources.get(data_source)
+            if df is None:
+                return go.Figure(), f"Unknown data source: {data_source}"
 
-class PydanticChartEditorAIO:
-    class ids:
-        @staticmethod
-        def form(aio_id): return {"component": "PydanticChartEditorAIO", "subcomponent": "form", "aio_id": aio_id}
-        @staticmethod
-        def chart(aio_id): return {"component": "PydanticChartEditorAIO", "subcomponent": "chart", "aio_id": aio_id}
-        @staticmethod
-        def debug(aio_id): return {"component": "PydanticChartEditorAIO", "subcomponent": "debug", "aio_id": aio_id}
-        @staticmethod
-        def data_source(aio_id): return {"component": "PydanticChartEditorAIO", "subcomponent": "data_source", "aio_id": aio_id}
-        @staticmethod
-        def button(aio_id): return {"component": "PydanticChartEditorAIO", "subcomponent": "submit_button",
-                                         "aio_id": aio_id}
+            metadata = PX_CHART_METADATA.get(chart_type, {})
+            kwarg_names = metadata.get("kwargs", [])
 
-    def __init__(self, aio_id, data_sources: Dict[str, Any]):
-        self.aio_id = aio_id
-        self.data_sources = data_sources
+            parsed = {
+                key: self._parse_scalar_value(value)
+                for key, value in (form_data or {}).items()
+                if key in kwarg_names
+            }
 
-    def layout(self):
-        return html.Div([
-            html.Div([
-                dcc.Dropdown(
-                    id=self.ids.data_source(self.aio_id),
-                    options=[{"label": k, "value": k} for k in self.data_sources.keys()],
-                    value=next(iter(self.data_sources.keys()), None),
-                    placeholder="Select data source"
-                ),
-                html.H4("Pydantic Chart Editor"),
-                html.Div(
-                    id=self.ids.form(self.aio_id)
-                ),
-                dmc.Button('Update Chart', id=self.ids.button(self.aio_id), n_clicks=0, variant='outline'),
-            ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
-            html.Div([
-                dcc.Graph(id=self.ids.chart(self.aio_id), style={'height': '600px'}),
-                html.Div(id=self.ids.debug(self.aio_id))
-            ], style={'width': '68%', 'display': 'inline-block', 'marginLeft': '2%'})
-        ])
+            try:
+                fig = self._to_figure(chart_type=chart_type, data_frame=df, kwargs=parsed)
+                return fig, json.dumps({"chart_type": chart_type, "kwargs": parsed}, indent=2, default=str)
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                error = go.Figure()
+                error.update_layout(title=f"Error creating {chart_type}: {exc}")
+                return error, str(exc)
 
-    @callback(
-        Output(ids.form(MATCH), "children"),
-        Input(ids.data_source(MATCH), "value"),
-        State(ModelForm.ids.main(MATCH, 'pydantic-chart-editor-form'), "data", allow_optional=True),
-        State(ids.form(MATCH), "id"),
-    )
-    def update_form(data, form_data, id):
-        from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditorAIO
-        data_sources = getattr(PydanticChartEditorAIO, "_data_sources", {})
-        return CreateChartModel(
-            aio_id=id['aio_id'],
-            df=pd.DataFrame(data_sources[data]) if data else None,
-            old_data = json.loads(form_data) if isinstance(form_data, str) and form_data else (form_data or {})
-        )
 
-    @callback(
-        Output(ids.chart(MATCH), "figure"),
-        Output(ids.debug(MATCH), "children"),
-        Input(ids.button(MATCH), "n_clicks"),
-        State(ModelForm.ids.main(MATCH, 'pydantic-chart-editor-form'), "data"),
-        State(ids.data_source(MATCH), "value"),
-        prevent_initial_call=True
-    )
-    def update_chart(n, form_data, data_source):
-        from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditorAIO
-        data_sources = getattr(PydanticChartEditorAIO, "_data_sources", {})
-        if not form_data or not data_source or data_source not in data_sources:
-            return go.Figure(), "Waiting for form data and data source..."
-        df = data_sources[data_source]
+def create_pydantic_chart_editor_app(data_sources: Dict[str, pd.DataFrame], port: int = 8054):
+    app = dash.Dash(__name__)
+    editor = PydanticChartEditor(data_sources=data_sources, component_id="main-editor")
 
-        return render_chart(form_data, df), f"Form data: {form_data}"
+    app.layout = html.Div([
+        html.H1("Pydantic Chart Editor", style={"textAlign": "center", "marginBottom": "20px"}),
+        editor,
+    ])
+
+    editor.register_callbacks(app)
+    return app
