@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from typing import Any, Dict, List, Literal, Optional, Set
+from typing import Annotated, Any, Dict, List, Literal, Optional, Set
 
 import dash
 from dash import dcc, html, callback, Output, Input, State, MATCH
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, create_model
 
 from dash_pydantic_form import ModelForm
 
-from .px_metadata import PX_CHART_METADATA
+from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
@@ -222,6 +222,7 @@ class PydanticChartEditor(html.Div):
         column_kwargs = set(metadata["column_kwargs"])
         multi_column_kwargs = set(metadata["multi_column_kwargs"])
         fixed_options: dict[str, list[str]] = metadata.get("fixed_options", {})
+        param_defaults: dict[str, Any] = metadata.get("param_defaults", {})
 
         fields: dict[str, tuple[Any, Any]] = {}
         literal_columns = tuple(columns)
@@ -231,6 +232,7 @@ class PydanticChartEditor(html.Div):
                 continue
 
             title = arg.replace("_", " ").title()
+            sig_default = param_defaults.get(arg)
 
             if arg in multi_column_kwargs:
                 if literal_columns:
@@ -248,13 +250,32 @@ class PydanticChartEditor(html.Div):
                 fields[arg] = (field_type, Field(default=None, title=title))
                 continue
 
-            # Fixed options → use Literal so ModelForm renders a Select dropdown
+            # Fixed options → use Literal so ModelForm renders a Select dropdown.
+            # Pre-select the signature default if it appears in the valid options.
             if arg in fixed_options:
                 opts = tuple(dict.fromkeys(fixed_options[arg]))  # preserve unique values in original order
                 if opts:
                     field_type = Optional[Literal[opts]]  # type: ignore[valid-type]
-                    fields[arg] = (field_type, Field(default=None, title=title))
+                    # Use the signature default when it's a valid option; otherwise None
+                    field_default = sig_default if isinstance(sig_default, str) and sig_default in opts else None
+                    fields[arg] = (field_type, Field(default=field_default, title=title))
                     continue
+
+            # Numeric params: use Annotated types with ge/le constraints so ModelForm
+            # renders proper number inputs instead of a plain text box.
+            if arg in NUMERIC_CONSTRAINTS:
+                nc = NUMERIC_CONSTRAINTS[arg]
+                num_type = nc["type"]
+                field_kwargs: dict[str, Any] = {"title": title}
+                if "ge" in nc:
+                    field_kwargs["ge"] = nc["ge"]
+                if "le" in nc:
+                    field_kwargs["le"] = nc["le"]
+                # Exclude bool: in Python bool is a subclass of int, so isinstance(True, int) is True.
+                # We never want a boolean signature default to be used as a numeric default here.
+                num_default = sig_default if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool) else None
+                fields[arg] = (Optional[num_type], Field(default=num_default, **field_kwargs))
+                continue
 
             inferred = metadata["arg_types"].get(arg, str)
             if inferred in (bool, int, float, dict, list, str):

@@ -25,6 +25,35 @@ _MULTI_COLUMN_PHRASES = (
 
 _OPTION_PATTERN = re.compile(r"[`'\"]([a-z_]+)[`'\"]")
 
+# Collect every parameter name used across all px chart functions.
+# Used to filter out false-positive option values that are actually param references.
+_ALL_PX_PARAM_NAMES: frozenset[str] = frozenset(
+    pname
+    for _, fn in getmembers(_chart_types, isfunction)
+    for pname in signature(fn).parameters
+)
+
+# Well-known numeric parameters with their type and optional ge/le constraints.
+# These override the inferred type (which often falls back to str) and are used
+# to generate number inputs with appropriate min/max bounds in the form.
+NUMERIC_CONSTRAINTS: dict[str, dict[str, Any]] = {
+    "opacity": {"type": float, "ge": 0.0, "le": 1.0},
+    "facet_col_wrap": {"type": int, "ge": 0},
+    "facet_row_spacing": {"type": float, "ge": 0.0, "le": 1.0},
+    "facet_col_spacing": {"type": float, "ge": 0.0, "le": 1.0},
+    "size_max": {"type": int, "ge": 1},
+    "nbins": {"type": int, "ge": 0},
+    "nbinsx": {"type": int, "ge": 0},
+    "nbinsy": {"type": int, "ge": 0},
+    "color_continuous_midpoint": {"type": float},
+    "maxdepth": {"type": int, "ge": -1},
+    "start_angle": {"type": int, "ge": 0, "le": 360},
+    "zoom": {"type": int, "ge": 0, "le": 20},
+    "width": {"type": int, "ge": 100},   # minimum 100px to keep chart usable
+    "height": {"type": int, "ge": 100},  # minimum 100px to keep chart usable
+    "hole": {"type": float, "ge": 0.0, "le": 1.0},
+}
+
 
 def _iter_chart_functions():
     return [
@@ -69,12 +98,22 @@ def _infer_param_type(param: Parameter) -> type[Any]:
 
 
 def _get_fixed_options() -> dict[str, list[str]]:
-    """Return a mapping of param name -> list of valid string options based on _doc.docs."""
+    """Return a mapping of param name -> list of valid string options based on _doc.docs.
+
+    Options that are themselves px parameter names are excluded to prevent false positives
+    (e.g. the orientation docs mention `x` and `y` as column references, not valid values).
+    """
     fixed: dict[str, list[str]] = {}
     for param, docs in _doc.docs.items():
         combined = " ".join(docs if isinstance(docs, list) else [docs])
         if "one of" in combined.lower():
-            options = list(dict.fromkeys(_OPTION_PATTERN.findall(combined)))
+            options = [
+                opt
+                for opt in dict.fromkeys(_OPTION_PATTERN.findall(combined))
+                # Exclude options that are actually px parameter names (false positives from
+                # references to other params in the documentation text)
+                if opt not in _ALL_PX_PARAM_NAMES
+            ]
             if options:
                 fixed[param] = options
     return fixed
@@ -102,6 +141,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
         multi_column_kwargs: list[str] = []
         arg_types: dict[str, type[Any]] = {}
         fixed_options: dict[str, list[str]] = {}
+        param_defaults: dict[str, Any] = {}
 
         for param in sig.parameters.values():
             if param.name == "data_frame":
@@ -111,6 +151,10 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
 
             kwargs.append(param.name)
             arg_types[param.name] = _infer_param_type(param)
+
+            # Store the signature default so the form can pre-select it
+            if param.default is not Parameter.empty:
+                param_defaults[param.name] = param.default
 
             # Record fixed options (finite enum-like choices) for this param
             if param.name in FIXED_OPTIONS:
@@ -133,6 +177,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
             "multi_column_kwargs": multi_column_kwargs,
             "arg_types": arg_types,
             "fixed_options": fixed_options,
+            "param_defaults": param_defaults,
         }
 
     return metadata

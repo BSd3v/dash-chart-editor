@@ -1,4 +1,4 @@
-from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS
+from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS
 
 
 def test_scatter_metadata_contains_common_kwargs():
@@ -34,3 +34,31 @@ def test_scatter_has_fixed_options_in_metadata():
     fo = scatter.get("fixed_options", {})
     # trendline is a fixed-option param for scatter
     assert "trendline" in fo
+
+
+def test_orientation_options_only_h_v():
+    """orientation should only include 'h' and 'v', not 'x' or 'y'."""
+    opts = FIXED_OPTIONS.get("orientation", [])
+    assert "h" in opts
+    assert "v" in opts
+    assert "x" not in opts, "'x' is a column ref, not a valid orientation"
+    assert "y" not in opts, "'y' is a column ref, not a valid orientation"
+
+
+def test_param_defaults_captured():
+    """Metadata should include param_defaults with signature defaults."""
+    scatter = PX_CHART_METADATA["scatter"]
+    defaults = scatter.get("param_defaults", {})
+    # log_x and log_y default to False in px.scatter
+    assert "log_x" in defaults
+    assert defaults["log_x"] is False
+
+
+def test_numeric_constraints_defined():
+    """NUMERIC_CONSTRAINTS should include common numeric params."""
+    assert "opacity" in NUMERIC_CONSTRAINTS
+    assert NUMERIC_CONSTRAINTS["opacity"]["type"] == float
+    assert NUMERIC_CONSTRAINTS["opacity"]["ge"] == 0.0
+    assert NUMERIC_CONSTRAINTS["opacity"]["le"] == 1.0
+    assert "facet_col_wrap" in NUMERIC_CONSTRAINTS
+    assert NUMERIC_CONSTRAINTS["facet_col_wrap"]["type"] == int
