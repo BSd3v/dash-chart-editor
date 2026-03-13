@@ -247,7 +247,7 @@ class PydanticChartEditor(html.Div):
                                     value="layout",
                                 ),
                             ],
-                            value=["charts", "layout"],
+                            value=["charts"],
                             multiple=True,
                         ),
                     ],
