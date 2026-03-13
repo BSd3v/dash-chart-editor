@@ -5,8 +5,10 @@ def test_scatter_metadata_contains_common_kwargs():
     scatter = PX_CHART_METADATA["scatter"]
     assert "x" in scatter["kwargs"]
     assert "y" in scatter["kwargs"]
-    assert "x" in scatter["column_kwargs"] or "x" in scatter["multi_column_kwargs"]
-    assert "y" in scatter["column_kwargs"] or "y" in scatter["multi_column_kwargs"]
+    assert "x" in scatter["column_kwargs"]
+    assert "y" in scatter["column_kwargs"]
+    assert "x" not in scatter["multi_column_kwargs"]
+    assert "y" not in scatter["multi_column_kwargs"]
 
 
 def test_pie_metadata_detects_column_kwargs():

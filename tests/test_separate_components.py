@@ -51,6 +51,11 @@ def test_pydantic_chart_editor():
     assert len(editor.data_sources) == 1
     print("✓ PydanticChartEditor instantiation test passed")
 
+    from dash_chart_editor.aio.pydantic_chart_editor import create_pydantic_chart_editor_app
+    app = create_pydantic_chart_editor_app(data_sources)
+    assert app.layout is not None
+    print("✓ PydanticChartEditor app creation works without manual callback registration")
+
 def test_separate_components():
     """Test that both components can be instantiated separately"""
     test_dcc_chart_editor()

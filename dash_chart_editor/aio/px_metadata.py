@@ -86,7 +86,12 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
             arg_types[param.name] = _infer_param_type(param)
 
             details = param_docs.get(param.name, "")
-            if any(phrase in details for phrase in _MULTI_COLUMN_PHRASES):
+            if param.name in {"x", "y"} and any(phrase in details for phrase in _MULTI_COLUMN_PHRASES):
+                # Keep x/y as single-column selectors by default.
+                # Plotly docs mention optional wide-form list support, but single selection
+                # is the expected editor behavior.
+                column_kwargs.append(param.name)
+            elif any(phrase in details for phrase in _MULTI_COLUMN_PHRASES):
                 multi_column_kwargs.append(param.name)
             elif any(phrase in details for phrase in _COLUMN_PHRASES):
                 column_kwargs.append(param.name)
