@@ -421,10 +421,11 @@ class MultiChartEditorAIO(html.Div):
             Input({"component": "MultiChartEditorAIO", "subcomponent": "layout_mode", "aio_id": MATCH}, "value"),
             Input({"component": "MultiChartEditorAIO", "subcomponent": "charts_data", "aio_id": MATCH}, "data")
         ],
+        State({"component": "MultiChartEditorAIO", "subcomponent": "selected_chart", "aio_id": MATCH}, "value"),
         State({"component": "MultiChartEditorAIO", "subcomponent": "data_sources_store", "aio_id": MATCH}, "data"),
         prevent_initial_call=True
     )
-    def update_charts_display(layout_mode, charts_data_str, serialized_sources):
+    def update_charts_display(layout_mode, charts_data_str, selected_chart, serialized_sources):
         """Update the charts display based on layout mode and available charts"""
         try:
             charts_data = json.loads(charts_data_str) if charts_data_str else []
@@ -436,7 +437,11 @@ class MultiChartEditorAIO(html.Div):
                            style={'textAlign': 'center', 'color': 'gray', 'padding': '50px'})
         
         if layout_mode == 'single':
-            chart = charts_data[0]
+            chart = next((c for c in charts_data if c.get("id") == selected_chart), None) or (
+                charts_data[0] if charts_data else None
+            )
+            if chart is None:
+                return html.Div("No chart selected.", style={'color': 'gray'})
             ds_name = chart.get("data_source")
             records = (serialized_sources or {}).get(ds_name, [])
             if not records:
