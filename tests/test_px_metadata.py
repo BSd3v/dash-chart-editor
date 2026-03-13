@@ -1,4 +1,5 @@
 from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS
+from dash_chart_editor.aio.pydantic_chart_editor import _RELAYOUT_TO_LAYOUT, PydanticChartEditor
 
 
 def test_scatter_metadata_contains_common_kwargs():
@@ -54,14 +55,57 @@ def test_param_defaults_captured():
     assert defaults["log_x"] is False
 
 
+def test_param_descriptions_captured():
+    """Metadata should include param_descriptions with short doc text."""
+    scatter = PX_CHART_METADATA["scatter"]
+    descs = scatter.get("param_descriptions", {})
+    assert isinstance(descs, dict)
+    assert "x" in descs
+    assert len(descs["x"]) > 0
+    assert len(descs["x"]) <= 200
+
+
 def test_numeric_constraints_defined():
-    """NUMERIC_CONSTRAINTS should include common numeric params."""
+    """NUMERIC_CONSTRAINTS should include common numeric params with correct constraints."""
     assert "opacity" in NUMERIC_CONSTRAINTS
     assert NUMERIC_CONSTRAINTS["opacity"]["type"] == float
     assert NUMERIC_CONSTRAINTS["opacity"]["ge"] == 0.0
     assert NUMERIC_CONSTRAINTS["opacity"]["le"] == 1.0
-    assert NUMERIC_CONSTRAINTS["opacity"]["step"] == 0.1
+    # Float fields use multiple_of (not step/json_schema_extra) so pydf reads it from
+    # field_info.metadata as annotated_types.MultipleOf → NumberInput step attribute.
+    assert NUMERIC_CONSTRAINTS["opacity"]["multiple_of"] == 0.1
     assert "facet_col_wrap" in NUMERIC_CONSTRAINTS
     assert NUMERIC_CONSTRAINTS["facet_col_wrap"]["type"] == int
-    # int params should NOT have a step (they step by 1 by default)
-    assert "step" not in NUMERIC_CONSTRAINTS["facet_col_wrap"]
+    # int params should NOT have multiple_of (they step by 1 by default)
+    assert "multiple_of" not in NUMERIC_CONSTRAINTS["facet_col_wrap"]
+
+
+def test_numeric_field_metadata_in_pydantic_model():
+    """multiple_of in NUMERIC_CONSTRAINTS should appear in pydantic field_info.metadata."""
+    import annotated_types
+
+    model = PydanticChartEditor._build_form_model("scatter", ["a", "b"], set())
+    fi = model.model_fields.get("opacity")
+    assert fi is not None
+    steps = [m.multiple_of for m in fi.metadata if isinstance(m, annotated_types.MultipleOf)]
+    assert steps == [0.1], f"Expected step=0.1 in field_info.metadata, got: {fi.metadata}"
+
+
+def test_relayout_to_layout_map():
+    """_RELAYOUT_TO_LAYOUT should include key layout fields."""
+    assert "title.text" in _RELAYOUT_TO_LAYOUT
+    assert _RELAYOUT_TO_LAYOUT["title.text"] == "title"
+    assert "legend.x" in _RELAYOUT_TO_LAYOUT
+    assert "paper_bgcolor" in _RELAYOUT_TO_LAYOUT
+    assert "showlegend" in _RELAYOUT_TO_LAYOUT
+
+
+def test_linked_parameter_stored():
+    """PydanticChartEditor should accept and store a linked=False flag."""
+    import pandas as pd
+    editor = PydanticChartEditor(
+        data_sources={"df": pd.DataFrame({"a": [1, 2], "b": [3, 4]})},
+        component_id="test-linked",
+        linked=False,
+    )
+    assert editor._linked is False

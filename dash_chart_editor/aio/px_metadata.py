@@ -33,26 +33,27 @@ _ALL_PX_PARAM_NAMES: frozenset[str] = frozenset(
     for pname in signature(fn).parameters
 )
 
-# Well-known numeric parameters with their type and optional ge/le/step constraints.
+# Well-known numeric parameters with their type and optional ge/le/multiple_of constraints.
 # These override the inferred type (which often falls back to str) and are used
 # to generate number inputs with appropriate min/max bounds in the form.
-# Float fields also carry a step of 0.1 so the spinner increments sensibly.
+# Float fields also carry multiple_of=0.1 so pydf's NumberInput steps in 0.1 intervals
+# (pydf reads annotated_types.MultipleOf from field_info.metadata, not json_schema_extra).
 NUMERIC_CONSTRAINTS: dict[str, dict[str, Any]] = {
-    "opacity": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
+    "opacity": {"type": float, "ge": 0.0, "le": 1.0, "multiple_of": 0.1},
     "facet_col_wrap": {"type": int, "ge": 0},
-    "facet_row_spacing": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
-    "facet_col_spacing": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
+    "facet_row_spacing": {"type": float, "ge": 0.0, "le": 1.0, "multiple_of": 0.1},
+    "facet_col_spacing": {"type": float, "ge": 0.0, "le": 1.0, "multiple_of": 0.1},
     "size_max": {"type": int, "ge": 1},
     "nbins": {"type": int, "ge": 0},
     "nbinsx": {"type": int, "ge": 0},
     "nbinsy": {"type": int, "ge": 0},
-    "color_continuous_midpoint": {"type": float, "step": 0.1},
+    "color_continuous_midpoint": {"type": float, "multiple_of": 0.1},
     "maxdepth": {"type": int, "ge": -1},
     "start_angle": {"type": int, "ge": 0, "le": 360},
     "zoom": {"type": int, "ge": 0, "le": 20},
     "width": {"type": int, "ge": 100},   # minimum 100px to keep chart usable
     "height": {"type": int, "ge": 100},  # minimum 100px to keep chart usable
-    "hole": {"type": float, "ge": 0.0, "le": 1.0, "step": 0.1},
+    "hole": {"type": float, "ge": 0.0, "le": 1.0, "multiple_of": 0.1},
 }
 
 
@@ -172,6 +173,14 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
             elif any(phrase in details for phrase in _COLUMN_PHRASES):
                 column_kwargs.append(param.name)
 
+        # Build short descriptions from the parsed docstring for each param.
+        # Limit to 200 chars so form tooltips stay readable.
+        param_descriptions: dict[str, str] = {
+            name: text[:200].rstrip(" ,.")
+            for name, text in param_docs.items()
+            if name != "data_frame"
+        }
+
         metadata[chart_name] = {
             "kwargs": kwargs,
             "column_kwargs": column_kwargs,
@@ -179,6 +188,7 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
             "arg_types": arg_types,
             "fixed_options": fixed_options,
             "param_defaults": param_defaults,
+            "param_descriptions": param_descriptions,
         }
 
     return metadata

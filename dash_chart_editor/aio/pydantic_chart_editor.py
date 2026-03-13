@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from typing import Annotated, Any, Dict, List, Literal, Optional, Set
+from typing import Any, Dict, List, Literal, Optional, Set
 
 import dash
-from dash import dcc, html, callback, Output, Input, State, MATCH
+from dash import dcc, html, callback, Output, Input, State, MATCH, no_update
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -21,6 +21,22 @@ from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 _PYDF_LAYOUT_FORM_ID = "pydantic-chart-layout-form"
+
+# Maps Plotly relayoutData keys → _LayoutConfig field names.
+# When linked=True, in-graph user edits are synced back to the layout form.
+_RELAYOUT_TO_LAYOUT: dict[str, str] = {
+    "title.text": "title",
+    "showlegend": "showlegend",
+    "legend.x": "legend_x",
+    "legend.y": "legend_y",
+    "legend.orientation": "legend_orientation",
+    "legend.xanchor": "legend_xanchor",
+    "legend.yanchor": "legend_yanchor",
+    "paper_bgcolor": "paper_bgcolor",
+    "plot_bgcolor": "plot_bgcolor",
+    "width": "width",
+    "height": "height",
+}
 
 
 def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
@@ -53,17 +69,32 @@ def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
 class _LayoutConfig(BaseModel):
     """Pydantic model for chart layout options."""
 
-    title: Optional[str] = Field(default=None, title="Title")
-    height: Optional[int] = Field(default=None, title="Height (px)")
-    width: Optional[int] = Field(default=None, title="Width (px)")
-    showlegend: Optional[bool] = Field(default=None, title="Show Legend")
-    legend_x: Optional[float] = Field(default=None, title="Legend X Position (0–1)")
-    legend_y: Optional[float] = Field(default=None, title="Legend Y Position (0–1)")
-    legend_orientation: Optional[Literal["v", "h"]] = Field(default=None, title="Legend Orientation")
-    legend_xanchor: Optional[Literal["auto", "left", "center", "right"]] = Field(default=None, title="Legend X Anchor")
-    legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(default=None, title="Legend Y Anchor")
-    paper_bgcolor: Optional[str] = Field(default=None, title="Paper Background Color")
-    plot_bgcolor: Optional[str] = Field(default=None, title="Plot Background Color")
+    title: Optional[str] = Field(default=None, title="Title",
+                                  description="The chart title displayed above the plot.")
+    height: Optional[int] = Field(default=None, title="Height (px)",
+                                   description="Height of the figure in pixels.", ge=100)
+    width: Optional[int] = Field(default=None, title="Width (px)",
+                                  description="Width of the figure in pixels.", ge=100)
+    showlegend: Optional[bool] = Field(default=None, title="Show Legend",
+                                        description="Whether to show the legend.")
+    legend_x: Optional[float] = Field(default=None, title="Legend X Position (0–1)",
+                                       description="Horizontal position of the legend (0=left, 1=right).",
+                                       ge=0.0, le=1.0, multiple_of=0.1)
+    legend_y: Optional[float] = Field(default=None, title="Legend Y Position (0–1)",
+                                       description="Vertical position of the legend (0=bottom, 1=top).",
+                                       ge=0.0, le=1.0, multiple_of=0.1)
+    legend_orientation: Optional[Literal["v", "h"]] = Field(default=None, title="Legend Orientation",
+                                                              description="'v' for vertical, 'h' for horizontal.")
+    legend_xanchor: Optional[Literal["auto", "left", "center", "right"]] = Field(
+        default=None, title="Legend X Anchor",
+        description="Horizontal anchor point for the legend position.")
+    legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(
+        default=None, title="Legend Y Anchor",
+        description="Vertical anchor point for the legend position.")
+    paper_bgcolor: Optional[str] = Field(default=None, title="Paper Background Color",
+                                          description="Background color of the paper (e.g. 'white', '#fff').")
+    plot_bgcolor: Optional[str] = Field(default=None, title="Plot Background Color",
+                                         description="Background color inside the axes.")
 
 
 class PydanticChartEditor(html.Div):
@@ -104,11 +135,16 @@ class PydanticChartEditor(html.Div):
         def excluded_kwargs(aio_id):
             return {"component": "PydanticChartEditor", "subcomponent": "excluded_kwargs", "aio_id": aio_id}
 
+        @staticmethod
+        def linked(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "linked", "aio_id": aio_id}
+
     def __init__(
         self,
         data_sources: Optional[Dict[str, pd.DataFrame]] = None,
         component_id: Optional[str] = None,
         excluded_kwargs: Optional[Set[str]] = None,
+        linked: bool = True,
         **kwargs,
     ):
         """Create a PydanticChartEditor component.
@@ -119,6 +155,10 @@ class PydanticChartEditor(html.Div):
             excluded_kwargs: Set of chart kwarg names to hide from the form.  The developer
                 can use this to simplify the editor for their users (e.g. hide ``trendline``,
                 ``facet_row``, etc.).
+            linked: When ``True`` (default), user edits made directly on the chart (title,
+                axis labels, annotations via the editable graph) are synced back to the
+                layout form so the two stay in step.  Set to ``False`` to make the
+                relationship one-way (form → chart only).
         """
         if component_id is None:
             component_id = str(uuid.uuid4())
@@ -129,6 +169,7 @@ class PydanticChartEditor(html.Div):
             name: df.to_dict("records") for name, df in self.data_sources.items()
         }
         self._excluded_kwargs: Set[str] = set(excluded_kwargs or [])
+        self._linked = linked
 
         super().__init__(id=self.ids.container(component_id), children=self._build_layout(), **kwargs)
 
@@ -191,6 +232,8 @@ class PydanticChartEditor(html.Div):
                         id=self.ids.excluded_kwargs(self.component_id),
                         data=list(self._excluded_kwargs),
                     ),
+                    # linked flag: True means relayout edits sync back to the layout form
+                    dcc.Store(id=self.ids.linked(self.component_id), data=self._linked),
                 ],
                 style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
             ),
@@ -227,6 +270,7 @@ class PydanticChartEditor(html.Div):
         multi_column_kwargs = set(metadata["multi_column_kwargs"])
         fixed_options: dict[str, list[str]] = metadata.get("fixed_options", {})
         param_defaults: dict[str, Any] = metadata.get("param_defaults", {})
+        param_descriptions: dict[str, str] = metadata.get("param_descriptions", {})
 
         fields: dict[str, tuple[Any, Any]] = {}
         literal_columns = tuple(columns)
@@ -237,13 +281,14 @@ class PydanticChartEditor(html.Div):
 
             title = arg.replace("_", " ").title()
             sig_default = param_defaults.get(arg)
+            desc = param_descriptions.get(arg, "")
 
             if arg in multi_column_kwargs:
                 if literal_columns:
                     field_type = Optional[List[Literal[literal_columns]]]  # type: ignore[valid-type]
                 else:
                     field_type = Optional[List[str]]
-                fields[arg] = (field_type, Field(default=None, title=title))
+                fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
                 continue
 
             if arg in column_kwargs:
@@ -251,7 +296,7 @@ class PydanticChartEditor(html.Div):
                     field_type = Optional[Literal[literal_columns]]  # type: ignore[valid-type]
                 else:
                     field_type = Optional[str]
-                fields[arg] = (field_type, Field(default=None, title=title))
+                fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
                 continue
 
             # Fixed options → use Literal so ModelForm renders a Select dropdown.
@@ -262,22 +307,26 @@ class PydanticChartEditor(html.Div):
                     field_type = Optional[Literal[opts]]  # type: ignore[valid-type]
                     # Use the signature default when it's a valid option; otherwise None
                     field_default = sig_default if isinstance(sig_default, str) and sig_default in opts else None
-                    fields[arg] = (field_type, Field(default=field_default, title=title))
+                    fields[arg] = (field_type, Field(default=field_default, title=title, description=desc or None))
                     continue
 
-            # Numeric params: use Annotated types with ge/le constraints so ModelForm
-            # renders proper number inputs instead of a plain text box.
-            # Float fields also carry a step so the spinner increments in 0.1 intervals.
+            # Numeric params: pass ge/le/multiple_of directly on the outer Field() so they
+            # end up in field_info.metadata as annotated_types.Ge/Le/MultipleOf objects.
+            # dash-pydantic-form reads those objects to set min/max/step on the NumberInput.
             if arg in NUMERIC_CONSTRAINTS:
                 nc = NUMERIC_CONSTRAINTS[arg]
                 num_type = nc["type"]
                 field_kwargs: dict[str, Any] = {"title": title}
+                if desc:
+                    field_kwargs["description"] = desc
                 if "ge" in nc:
                     field_kwargs["ge"] = nc["ge"]
                 if "le" in nc:
                     field_kwargs["le"] = nc["le"]
-                if "step" in nc:
-                    field_kwargs["json_schema_extra"] = {"step": nc["step"]}
+                if "multiple_of" in nc:
+                    # multiple_of → annotated_types.MultipleOf in field_info.metadata
+                    # pydf's NumberField._additional_kwargs reads this as the step attribute
+                    field_kwargs["multiple_of"] = nc["multiple_of"]
                 # Exclude bool: in Python bool is a subclass of int, so isinstance(True, int) is True.
                 # We never want a boolean signature default to be used as a numeric default here.
                 num_default = sig_default if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool) else None
@@ -289,7 +338,7 @@ class PydanticChartEditor(html.Div):
                 field_type = Optional[inferred]
             else:
                 field_type = Optional[str]
-            fields[arg] = (field_type, Field(default=None, title=title))
+            fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
 
         return create_model(f"{chart_type.title()}Form", **fields)
 
@@ -352,6 +401,38 @@ class PydanticChartEditor(html.Div):
         )
 
     @staticmethod
+    @callback(
+        Output(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
+        Input(ids.chart(MATCH), "relayoutData"),
+        State(ids.linked(MATCH), "data"),
+        State(ModelForm.ids.main(MATCH, _PYDF_LAYOUT_FORM_ID), "data"),
+        prevent_initial_call=True,
+    )
+    def sync_relayout_to_form(relayout_data, linked, current_layout_data):
+        """Sync in-graph edits (title, legend, bgcolor, etc.) back to the layout form.
+
+        This callback is active when ``linked=True`` (the default).  It reads the
+        ``relayoutData`` from the graph (which Plotly fires whenever the user edits
+        a chart element directly) and maps the changed keys to the corresponding
+        ``_LayoutConfig`` fields, then updates the layout form store so the form
+        and chart stay in sync.
+
+        When ``linked=False`` the function returns ``no_update`` so the form is not
+        modified by in-graph edits.
+        """
+        if not linked or not relayout_data:
+            return no_update
+
+        updated = dict(current_layout_data or {})
+        changed = False
+        for relayout_key, layout_key in _RELAYOUT_TO_LAYOUT.items():
+            if relayout_key in relayout_data:
+                updated[layout_key] = relayout_data[relayout_key]
+                changed = True
+
+        return updated if changed else no_update
+
+    @staticmethod
     def _render_chart(form_data, layout_data, chart_type, data_source, serialized_data_sources, relayout_data=None):
         if not chart_type or not data_source:
             return go.Figure(), "Select chart type and data source."
@@ -398,6 +479,9 @@ class PydanticChartEditor(html.Div):
 
             # Re-apply any in-graph user edits (title, axis labels, annotations, etc.)
             # relayoutData contains only the delta of changes made by the user in the graph.
+            # This covers relayout keys not captured by the layout form (e.g. axis tick settings,
+            # annotations).  When linked=True the layout form already has the synced values but
+            # _apply_relayout is a harmless no-op for those keys.
             if relayout_data:
                 _apply_relayout(fig, relayout_data)
 
@@ -412,12 +496,14 @@ def create_pydantic_chart_editor_app(
     data_sources: Dict[str, pd.DataFrame],
     port: int = 8054,
     excluded_kwargs: Optional[Set[str]] = None,
+    linked: bool = True,
 ):
     app = dash.Dash(__name__)
     editor = PydanticChartEditor(
         data_sources=data_sources,
         component_id="main-editor",
         excluded_kwargs=excluded_kwargs,
+        linked=linked,
     )
 
     app.layout = html.Div([
