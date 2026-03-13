@@ -345,9 +345,7 @@ class PydanticChartEditor(html.Div):
         has_column_selection = any(parsed.get(name) not in (None, "", []) for name in column_candidates)
 
         if not has_column_selection:
-            placeholder = go.Figure()
-            placeholder.update_layout(title=f"Select at least one column option for {chart_type}.")
-            return placeholder, "Waiting for column selection..."
+            return go.Figure(), "Select a column for this chart type to render."
 
         try:
             fig = PydanticChartEditor._to_figure(chart_type=chart_type, data_frame=df, chart_kwargs=parsed)
