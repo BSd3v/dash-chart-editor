@@ -13,10 +13,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import dash_mantine_components as dmc
+from dash_mantine_components import Accordion
 from pydantic import BaseModel, Field, create_model
 from pydantic import ValidationError
 
-from dash_pydantic_form import ModelForm
+from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
 
 from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
 
@@ -36,8 +37,12 @@ class _ChartStateEntry(BaseModel):
 class _EditorState(BaseModel):
     """Unified state model keeping a list of charts plus shared layout."""
 
-    charts: List[_ChartStateEntry] = Field(default_factory=list)
-    shared_layout: Dict[str, Any] = Field(default_factory=dict)
+    charts: List[_ChartStateEntry] = Field(default_factory=list,
+                                           description="Configure individual charts. Add multiple charts to compare different visualizations or datasets.",
+                                           title="")
+    shared_layout: Dict[str, Any] = Field(default_factory=dict,
+                                          description="Configure shared layout properties that apply to all charts, such as title, legend position, and background color.",
+                                          title="")
 
 # Plotly Express API reference URL pattern — used to build chart-type-specific doc links.
 # These mirror the links shown in Dashboard-Helper's "Chart Info" panel.
@@ -279,78 +284,25 @@ class PydanticChartEditor(html.Div):
                 html.Div(
                     [
                         html.H4("Chart Editor", style={"marginBottom": "20px"}),
-                        dmc.Accordion(
-                            children=[
-                                dmc.AccordionItem(
-                                    [
-                                        dmc.AccordionControl("Charts"),
-                                        dmc.AccordionPanel(
-                                            [
-                                                html.Label("Chart Type"),
-                                                html.Div(
-                                                    [
-                                                        html.Label("Charts", style={"marginBottom": "4px"}),
-                                                        dcc.Dropdown(
-                                                            id=self.ids.chart_select(self.component_id),
-                                                            options=[{"label": "Chart 1", "value": "Chart 1"}],
-                                                            value="Chart 1",
-                                                            clearable=False,
-                                                        ),
-                                                        html.Div(
-                                                            [
-                                                                html.Button("Add", id=self.ids.add_chart_btn(self.component_id),
-                                                                            style={"marginRight": "8px"}),
-                                                                html.Button("Remove", id=self.ids.remove_chart_btn(self.component_id)),
-                                                            ],
-                                                            style={"marginTop": "8px"},
-                                                        ),
-                                                    ],
-                                                    style={} if self.multi_chart else {"display": "none"},
-                                                ),
-                                                dcc.Dropdown(
-                                                    id=self.ids.chart_type(self.component_id),
-                                                    options=self.chart_options,
-                                                    value=default_chart,
-                                                    clearable=False,
-                                                ),
-                                                html.Div(
-                                                    id=self.ids.doc_link_container(self.component_id),
-                                                    style={"marginTop": "6px", "fontSize": "12px"}
-                                                    if self.show_doc_link
-                                                    else {"display": "none"},
-                                                ),
-                                                html.Label("Data Source", style={"marginTop": "12px"}),
-                                                dcc.Dropdown(
-                                                    id=self.ids.data_source(self.component_id),
-                                                    options=data_source_options,
-                                                    value=default_data,
-                                                    clearable=False,
-                                                ),
-                                                html.Hr(style={"margin": "16px 0"}),
-                                                html.H6("Chart Properties", style={"marginBottom": "8px"}),
-                                                html.Div(id=self.ids.form_container(self.component_id)),
-                                            ]
-                                        ),
-                                    ],
-                                    value="charts",
-                                ),
-                                dmc.AccordionItem(
-                                    [
-                                        dmc.AccordionControl("Layout"),
-                                        dmc.AccordionPanel(
-                                            [
-                                                html.H6("Layout", style={"marginBottom": "8px"}),
-                                                ModelForm(item=_LayoutConfig, aio_id=self.component_id,
-                                                          form_id=_PYDF_LAYOUT_FORM_ID),
-                                            ]
-                                        ),
-                                    ],
-                                    value="layout",
-                                ),
-                            ],
-                            value=["charts"],
-                            multiple=True,
-                        ),
+                        ModelForm(
+                            item=_EditorState,
+                            aio_id=self.component_id,
+                            form_id=self._FORM_ID,
+                            form_layout=AccordionFormLayout(
+                                sections=[
+                                    FormSection(
+                                        name="Charts",
+                                        fields=["charts"],
+                                        default_open=True
+                                    ),
+                                    FormSection(
+                                        name="Layout",
+                                        fields=["shared_layout"],
+                                        description="Configure shared layout properties that apply to all charts, such as title, legend position, and background color.",
+                                    ),
+                                ]
+                            )
+                        )
                     ],
                     style={"width": "35%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"},
                 )
