@@ -120,3 +120,46 @@ def test_doc_link_url_format():
     assert "scatter" in url
     assert url.endswith(".html")
 
+
+def test_unified_editor_state_model():
+    """_EditorState should combine a list of _ChartEntry with a _LayoutConfig."""
+    from dash_chart_editor.aio.pydantic_chart_editor import (
+        _EditorState, _ChartEntry, _LayoutConfig,
+    )
+
+    state = _EditorState(
+        charts=[
+            _ChartEntry(label="A", chart_type="scatter", data_source="ds", x="x", y="y"),
+            _ChartEntry(label="B", chart_type="bar", data_source="ds", x="cat", y="val"),
+        ],
+        shared_layout=_LayoutConfig(title="Combined", showlegend=True),
+    )
+    assert len(state.charts) == 2
+    assert state.charts[0].label == "A"
+    assert state.charts[1].chart_type == "bar"
+    assert state.shared_layout.title == "Combined"
+    assert state.shared_layout.showlegend is True
+
+
+def test_chart_entry_column_fields_in_model():
+    """_ChartEntry should expose standard column fields (x, y, color, size, names, values)."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _ChartEntry
+
+    entry = _ChartEntry(chart_type="pie", data_source="ds", names="category", values="amount")
+    assert entry.names == "category"
+    assert entry.values == "amount"
+    assert entry.x is None
+    assert entry.y is None
+
+
+def test_layout_config_paper_plot_bgcolor():
+    """_LayoutConfig should include paper_bgcolor and plot_bgcolor fields."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _LayoutConfig
+
+    layout = _LayoutConfig(paper_bgcolor="white", plot_bgcolor="#f0f0f0")
+    assert layout.paper_bgcolor == "white"
+    assert layout.plot_bgcolor == "#f0f0f0"
+    # Ensure they are in _RELAYOUT_TO_LAYOUT
+    assert "paper_bgcolor" in _RELAYOUT_TO_LAYOUT
+    assert "plot_bgcolor" in _RELAYOUT_TO_LAYOUT
+
