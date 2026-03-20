@@ -22,7 +22,7 @@ from pydantic import ValidationError
 
 from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
 
-from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS
+from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS, classify_chart_param
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 
@@ -121,77 +121,146 @@ _DYNAMIC_CHART_MODELS: Optional[List[type[BaseModel]]] = None
 _DYNAMIC_CHART_UNION: Optional[Any] = None
 _DYNAMIC_EDITOR_STATE_MODEL: Optional[type[BaseModel]] = None
 
-def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[BaseModel]:
-    """Build a chart-options model for a specific Plotly Express chart type (excluding chart_type and data_source)."""
-    fields: Dict[str, Any] = {
-        # chart_type is required for Pydantic v2 discriminated unions
-        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
-        "label": (str, Field(default="Chart", title="Label")),
-    }
+
+def _build_chart_param_field(arg: str, metadata: dict) -> tuple:
+    """Return a (type, Field) pair for a single chart parameter."""
     fixed_options: dict = metadata.get("fixed_options", {})
     param_defaults: dict = metadata.get("param_defaults", {})
     param_descriptions: dict = metadata.get("param_descriptions", {})
     column_kwargs = set(metadata.get("column_kwargs", []))
     multi_column_kwargs = set(metadata.get("multi_column_kwargs", []))
 
-    for arg in metadata.get("kwargs", []):
-        title = arg.replace("_", " ").title()
-        desc = param_descriptions.get(arg, "")
-        sig_default = param_defaults.get(arg)
+    title = arg.replace("_", " ").title()
+    desc = param_descriptions.get(arg, "")
+    sig_default = param_defaults.get(arg)
 
-        if arg in multi_column_kwargs:
-            fields[arg] = (
-                Optional[List[str]],
-                Field(default=None, title=title, description=desc or None),
-            )
-            continue
+    if arg in multi_column_kwargs:
+        return (Optional[List[str]], Field(default=None, title=title, description=desc or None))
 
-        if arg in column_kwargs:
-            fields[arg] = (
-                Optional[str],
-                Field(default=None, title=title, description=desc or None),
-            )
-            continue
+    if arg in column_kwargs:
+        return (Optional[str], Field(default=None, title=title, description=desc or None))
 
-        if arg in fixed_options:
-            opts = tuple(dict.fromkeys(fixed_options[arg]))
-            if opts:
-                field_type = Optional[Literal[opts]]  # type: ignore[valid-type]
-                field_default = sig_default if isinstance(sig_default, str) and sig_default in opts else None
-                fields[arg] = (
-                    field_type,
-                    Field(default=field_default, title=title, description=desc or None),
-                )
-                continue
+    if arg in fixed_options:
+        opts = tuple(dict.fromkeys(fixed_options[arg]))
+        if opts:
+            field_type = Optional[Literal[opts]]  # type: ignore[valid-type]
+            field_default = sig_default if isinstance(sig_default, str) and sig_default in opts else None
+            return (field_type, Field(default=field_default, title=title, description=desc or None))
 
-        if arg in NUMERIC_CONSTRAINTS:
-            nc = NUMERIC_CONSTRAINTS[arg]
-            field_kwargs: dict = {"title": title}
-            if desc:
-                field_kwargs["description"] = desc
-            if "ge" in nc:
-                field_kwargs["ge"] = nc["ge"]
-            if "le" in nc:
-                field_kwargs["le"] = nc["le"]
-            if "multiple_of" in nc:
-                field_kwargs["multiple_of"] = nc["multiple_of"]
-            num_default = (
-                sig_default
-                if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool)
-                else None
-            )
-            fields[arg] = (Optional[nc["type"]], Field(default=num_default, **field_kwargs))
-            continue
+    if arg in NUMERIC_CONSTRAINTS:
+        nc = NUMERIC_CONSTRAINTS[arg]
+        fkw: dict = {"title": title}
+        if desc:
+            fkw["description"] = desc
+        if "ge" in nc:
+            fkw["ge"] = nc["ge"]
+        if "le" in nc:
+            fkw["le"] = nc["le"]
+        if "multiple_of" in nc:
+            fkw["multiple_of"] = nc["multiple_of"]
+        num_default = (
+            sig_default
+            if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool)
+            else None
+        )
+        return (Optional[nc["type"]], Field(default=num_default, **fkw))
 
-        inferred = metadata.get("arg_types", {}).get(arg, str)
-        if inferred in (bool, int, float, dict, list, str):
-            field_type = Optional[inferred]
-        else:
-            field_type = Optional[str]
-        fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
+    inferred = metadata.get("arg_types", {}).get(arg, str)
+    if inferred in (bool, int, float, dict, list, str):
+        field_type = Optional[inferred]
+    else:
+        field_type = Optional[str]
+    return (field_type, Field(default=None, title=title, description=desc or None))
 
-    return create_model(f"{chart_type.title()}ChartOptions", **fields)
 
+def _build_section_model(
+    chart_type: str,
+    section_name: str,
+    params: List[str],
+    metadata: dict,
+) -> type[BaseModel]:
+    """Build a pydantic model for one section (common/advanced/special) of a chart type."""
+    fields: Dict[str, Any] = {
+        arg: _build_chart_param_field(arg, metadata)
+        for arg in params
+    }
+    return create_model(f"{chart_type.title()}{section_name.title()}Section", **fields)
+
+
+def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[BaseModel]:
+    """Build a chart-entry model for a specific Plotly Express chart type.
+
+    The model has three nested section sub-models:
+    - **common** – core column selectors and opacity.
+    - **advanced** – facets, animation, error bars, color scales, etc.
+    - **special** – chart-type-specific params (trendlines, marginals, display modes, …).
+
+    A ``model_validator(mode='before')`` accepts flat dicts (backward-compatible input)
+    and reshapes them into the three sections automatically.
+    """
+    from pydantic import model_validator
+
+    kwargs = metadata.get("kwargs", [])
+    # Partition kwargs into sections, preserving original order within each.
+    common_params = [p for p in kwargs if classify_chart_param(p) == "common"]
+    advanced_params = [p for p in kwargs if classify_chart_param(p) == "advanced"]
+    special_params = [p for p in kwargs if classify_chart_param(p) == "special"]
+
+    CommonSection = _build_section_model(chart_type, "common", common_params, metadata)
+    AdvancedSection = _build_section_model(chart_type, "advanced", advanced_params, metadata)
+    SpecialSection = _build_section_model(chart_type, "special", special_params, metadata)
+
+    # All kwarg names per section – used by the flat-input validator.
+    _common_set = set(common_params)
+    _advanced_set = set(advanced_params)
+    _special_set = set(special_params)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reshape_flat_input(cls, data: Any) -> Any:  # noqa: N805
+        """Accept legacy flat dicts and fold them into section sub-dicts."""
+        if not isinstance(data, dict):
+            return data
+        # If any section key already present, assume structured input.
+        if any(k in data for k in ("common", "advanced", "special")):
+            return data
+        top: Dict[str, Any] = {}
+        common_d: Dict[str, Any] = {}
+        adv_d: Dict[str, Any] = {}
+        spec_d: Dict[str, Any] = {}
+        for k, v in data.items():
+            if k in ("chart_type", "label", "data_source"):
+                top[k] = v
+            elif k in _common_set:
+                common_d[k] = v
+            elif k in _special_set:
+                spec_d[k] = v
+            elif k in _advanced_set:
+                adv_d[k] = v
+            # unknown keys dropped silently
+        if common_d:
+            top["common"] = common_d
+        if adv_d:
+            top["advanced"] = adv_d
+        if spec_d:
+            top["special"] = spec_d
+        return top
+
+    fields: Dict[str, Any] = {
+        # chart_type is the Pydantic v2 discriminator field for the union.
+        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
+        "label": (str, Field(default="Chart", title="Label")),
+        "data_source": (Optional[str], Field(default=None, title="Data Source")),
+        "common": (CommonSection, Field(default_factory=CommonSection, title="Common")),
+        "advanced": (AdvancedSection, Field(default_factory=AdvancedSection, title="Advanced")),
+        "special": (SpecialSection, Field(default_factory=SpecialSection, title="Special")),
+    }
+
+    return create_model(
+        f"{chart_type.title()}ChartEntry",
+        __validators__={"_reshape_flat_input": _reshape_flat_input},
+        **fields,
+    )
 
 
 def _get_chart_union_models() -> List[type[BaseModel]]:
@@ -215,35 +284,32 @@ def _get_chart_union_type() -> Any:
         _DYNAMIC_CHART_UNION = Union[models]
     return _DYNAMIC_CHART_UNION
 
-def _get_chart_entry_model() -> type[BaseModel]:
-    """Return the ChartEntry model with data_source, chart_type, and chart_options (union)."""
-    from typing import Annotated
-    from pydantic import Field as PydField
-    chart_options_union = _get_chart_union_type()
-    # chart_type is now a top-level field and the discriminator for the union
-    AnnotatedUnion = Annotated[chart_options_union, PydField(discriminator="chart_type")]
-    # Avoid unpacking in subscript for Python <3.11 compatibility
-    chart_type_literal = Literal[tuple(_CHART_TYPES)] if len(_CHART_TYPES) > 1 else Literal[_CHART_TYPES[0]]
-    return create_model(
-        "ChartEntry",
-        data_source=(Optional[str], Field(default=None, title="Data Source")),
-        chart_options=(AnnotatedUnion, Field(..., title="Chart Options")),
-    )
-
 def _get_editor_state_model() -> type[BaseModel]:
-    """Return dynamic editor-state model containing chart union list + shared layout."""
+    """Return dynamic editor-state model containing chart union list + shared layout.
+
+    Each chart entry is a discriminated-union model (one per chart type) built at app
+    startup from ``PX_CHART_METADATA``.  The union uses ``chart_type`` as the
+    discriminator so pydantic selects the correct per-chart model automatically.
+    Each per-chart model has three nested section sub-models (common / advanced / special)
+    so pydf can render them in collapsible accordion panels.
+    """
     global _DYNAMIC_EDITOR_STATE_MODEL
     if _DYNAMIC_EDITOR_STATE_MODEL is None:
-        chart_entry = _get_chart_entry_model()
+        from typing import Annotated
+        from pydantic import Field as PydField
+
+        chart_union = _get_chart_union_type()
+        AnnotatedUnion = Annotated[chart_union, PydField(discriminator="chart_type")]
+
         _DYNAMIC_EDITOR_STATE_MODEL = create_model(
             "_DynamicEditorState",
             charts=(
-                List[chart_entry],  # type: ignore[valid-type]
+                List[AnnotatedUnion],  # type: ignore[valid-type]
                 Field(
                     default_factory=list,
-                    title="",
+                    title="Charts",
                     description=(
-                        "Configure individual chart traces as a typed list. "
+                        "Configure individual chart traces. "
                         "Add multiple charts to overlay on the same graph."
                     ),
                 ),
@@ -252,7 +318,7 @@ def _get_editor_state_model() -> type[BaseModel]:
                 _LayoutConfig,
                 Field(
                     default_factory=_LayoutConfig,
-                    title="",
+                    title="Layout",
                     description="Layout settings shared across all charts in this figure.",
                 ),
             ),
@@ -262,6 +328,24 @@ def _get_editor_state_model() -> type[BaseModel]:
 
 # Backward-compatible alias used in tests/imports.
 _EditorState = _get_editor_state_model()
+
+# Simple flat backward-compat model for external code / older tests that import _ChartEntry.
+# NOTE: This is NOT used by the live ModelForm-based editor; the discriminated-union models
+# generated by _build_dynamic_chart_options_model are used for the actual editor state.
+_ChartEntry = create_model(
+    "_ChartEntry",
+    chart_type=(str, Field(default="scatter", title="Chart Type")),
+    label=(str, Field(default="Chart", title="Label")),
+    data_source=(Optional[str], Field(default=None, title="Data Source")),
+    x=(Optional[str], Field(default=None, title="X")),
+    y=(Optional[str], Field(default=None, title="Y")),
+    color=(Optional[str], Field(default=None, title="Color")),
+    size=(Optional[str], Field(default=None, title="Size")),
+    names=(Optional[str], Field(default=None, title="Names")),
+    values=(Optional[str], Field(default=None, title="Values")),
+    opacity=(Optional[float], Field(default=None, title="Opacity", ge=0.0, le=1.0)),
+)
+
 
 
 class PydanticChartEditor(html.Div):
@@ -336,21 +420,12 @@ class PydanticChartEditor(html.Div):
     def _build_layout(self):
         data_source_keys = list(self.data_sources.keys())
         default_data = data_source_keys[0] if data_source_keys else None
-        chart_entry_model = _get_chart_entry_model()
-        # Pick a default chart type and options
-        chart_types = list(PX_CHART_METADATA.keys())
-        default_chart_type = chart_types[0] if chart_types else None
-        chart_options_models = _get_chart_union_models()
-        default_options_model = chart_options_models[0] if chart_options_models else None
-        default_options = default_options_model(label="Chart 1") if default_options_model else None
+        chart_union_models = _get_chart_union_models()
+        default_chart_model = chart_union_models[0] if chart_union_models else None
+        default_entry = default_chart_model(label="Chart 1", data_source=default_data) if default_chart_model else None
 
         initial_state = _EditorState(
-            charts=[
-                chart_entry_model(
-                    data_source=default_data,
-                    chart_options=default_options,
-                ).model_dump()
-            ],
+            charts=[default_entry.model_dump()] if default_entry else [],
             shared_layout=_LayoutConfig(),
         )
 
@@ -491,41 +566,58 @@ class PydanticChartEditor(html.Div):
 
         return create_model(f"{chart_type.title()}Form", **fields)
 
-    # ── Column fields read from each chart_options ───────────────────────────────
-    _COLUMN_FIELDS = ("x", "y", "color", "size", "names", "values")
+    # ── Column fields used to check if any column is selected ───────────────────────────────
+    # Subset of COMMON_PARAM_NAMES that are actual column references (not opacity/hover_data/etc.)
+    # used to decide whether a meaningful chart can be rendered.
+    _COLUMN_FIELDS = ("x", "y", "z", "r", "theta", "color", "size", "names", "values",
+                      "lat", "lon", "locations", "hover_name")
+
+    # Fields to skip when flattening section sub-models into Plotly Express kwargs.
+    _SECTION_SKIP: frozenset = frozenset({"label", "chart_type", "data_source",
+                                          "common", "advanced", "special"})
+
+    @staticmethod
+    def _flatten_entry_kwargs(entry) -> dict:
+        """Flatten kwargs from an entry's section sub-models (common, advanced, special).
+
+        Each per-chart-type entry model has three nested section sub-models.  This helper
+        collects all non-None values from each section into a single flat dict ready to
+        pass to Plotly Express.  It also handles flat entries (backward-compat ``_ChartEntry``
+        instances that expose kwargs directly as top-level attributes).
+        """
+        kwargs: dict = {}
+        # Try section sub-models first (new section-based architecture).
+        for section_name in ("common", "advanced", "special"):
+            section = getattr(entry, section_name, None)
+            if section is not None and hasattr(section, "model_dump"):
+                for k, v in section.model_dump(exclude_none=True).items():
+                    if v is not None and v != "" and v != []:
+                        kwargs[k] = v
+        if not kwargs:
+            # Fall back to reading flat top-level fields (backward-compat flat models).
+            for k, v in entry.model_dump(exclude_none=True).items():
+                if k not in PydanticChartEditor._SECTION_SKIP and v is not None and v != "" and v != []:
+                    kwargs[k] = v
+        return kwargs
 
     @staticmethod
     def _entry_to_figure(entry, all_sources: dict) -> Optional[go.Figure]:
         """Render a single chart entry as a Plotly figure, or return None if not renderable."""
-        if not entry.chart_options or not entry.data_source:
+        data_source = getattr(entry, "data_source", None)
+        if not data_source:
             return None
-        records = all_sources.get(entry.data_source, [])
+        records = all_sources.get(data_source, [])
         if not records:
             return None
         df = pd.DataFrame(records)
 
-        # chart_options is the type-specific options model
-        options = entry.chart_options
-        kwargs: dict = {}
-        for field_name in (*PydanticChartEditor._COLUMN_FIELDS, "opacity"):
-            val = getattr(options, field_name, None)
-            if val is not None and val != "":
-                kwargs[field_name] = val
+        kwargs = PydanticChartEditor._flatten_entry_kwargs(entry)
 
-        # Add any other fields from options that are not label
-        for k, v in options.model_dump(exclude_none=True).items():
-            if k not in kwargs and k not in ("label", "chart_type"):
-                kwargs[k] = v
-
-        # Need at least one column kwarg to render a meaningful chart
+        # Need at least one column kwarg to render a meaningful chart.
         if not any(kwargs.get(f) for f in PydanticChartEditor._COLUMN_FIELDS):
             return None
 
-        # Remove label if present
-        kwargs.pop("label", None)
-        kwargs.pop("chart_type", None)
-
-        chart_type = getattr(entry.chart_options, "chart_type", None)
+        chart_type = getattr(entry, "chart_type", None)
         return PydanticChartEditor._to_figure(chart_type, df, kwargs)
 
     @staticmethod
@@ -582,15 +674,15 @@ class PydanticChartEditor(html.Div):
             try:
                 trace_fig = PydanticChartEditor._entry_to_figure(chart_entry, all_sources)
             except Exception as exc:  # pragma: no cover – surfaced in debug output below
-                label = getattr(getattr(chart_entry, "chart_options", None), "label", None)
-                chart_type = getattr(getattr(chart_entry, "chart_options", None), "chart_type", None)
-                render_errors.append(f"Error rendering '{label}': {exc}")
+                label = getattr(chart_entry, "label", None)
+                chart_type = getattr(chart_entry, "chart_type", None)
+                render_errors.append(f"Error rendering '{label or chart_type}': {exc}")
                 continue
             if trace_fig is None:
                 continue
             for trace in trace_fig.data:
-                label = getattr(getattr(chart_entry, "chart_options", None), "label", None)
-                chart_type = getattr(getattr(chart_entry, "chart_options", None), "chart_type", None)
+                label = getattr(chart_entry, "label", None)
+                chart_type = getattr(chart_entry, "chart_type", None)
                 trace.name = label or chart_type or "Chart"
                 fig.add_trace(trace)
             has_data = True

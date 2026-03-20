@@ -1,4 +1,7 @@
-from dash_chart_editor.aio.px_metadata import PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS, MAX_DESCRIPTION_LENGTH
+from dash_chart_editor.aio.px_metadata import (
+    PX_CHART_METADATA, FIXED_OPTIONS, NUMERIC_CONSTRAINTS, MAX_DESCRIPTION_LENGTH,
+    COMMON_PARAM_NAMES, SPECIAL_PARAM_NAMES, classify_chart_param,
+)
 from dash_chart_editor.aio.pydantic_chart_editor import (
     _RELAYOUT_TO_LAYOUT, _PX_API_BASE, PydanticChartEditor,
 )
@@ -102,6 +105,34 @@ def test_relayout_to_layout_map():
     assert "showlegend" in _RELAYOUT_TO_LAYOUT
 
 
+def test_param_section_classification():
+    """classify_chart_param should return correct section for known params."""
+    # Common: core column selectors + opacity
+    assert classify_chart_param("x") == "common"
+    assert classify_chart_param("y") == "common"
+    assert classify_chart_param("color") == "common"
+    assert classify_chart_param("size") == "common"
+    assert classify_chart_param("names") == "common"
+    assert classify_chart_param("values") == "common"
+    assert classify_chart_param("opacity") == "common"
+    # Advanced: facets, animation, error bars, etc.
+    assert classify_chart_param("facet_row") == "advanced"
+    assert classify_chart_param("facet_col") == "advanced"
+    assert classify_chart_param("animation_frame") == "advanced"
+    # Special: trendlines, marginals, display modes, etc.
+    assert classify_chart_param("trendline") == "special"
+    assert classify_chart_param("barmode") == "special"
+    assert classify_chart_param("orientation") == "special"
+    assert classify_chart_param("marginal_x") == "special"
+    assert classify_chart_param("log_x") == "special"
+
+
+def test_common_and_special_param_sets_non_overlapping():
+    """COMMON_PARAM_NAMES and SPECIAL_PARAM_NAMES must be disjoint."""
+    overlap = COMMON_PARAM_NAMES & SPECIAL_PARAM_NAMES
+    assert not overlap, f"Overlapping params: {overlap}"
+
+
 def test_show_doc_link_parameter_stored():
     """PydanticChartEditor should accept show_doc_link=False and expose it as a public attribute."""
     import pandas as pd
@@ -122,17 +153,19 @@ def test_doc_link_url_format():
 
 
 def test_unified_editor_state_model():
-    """_EditorState should combine a list of _ChartEntry with a _LayoutConfig."""
-    from dash_chart_editor.aio.pydantic_chart_editor import (
-        _EditorState, _ChartEntry, _LayoutConfig,
-    )
+    """_EditorState should combine a charts list (union of section-based models) with _LayoutConfig."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _EditorState, _LayoutConfig
 
-    state = _EditorState(
-        charts=[
-            _ChartEntry(label="A", chart_type="scatter", data_source="ds", x="x", y="y"),
-            _ChartEntry(label="B", chart_type="bar", data_source="ds", x="cat", y="val"),
-        ],
-        shared_layout=_LayoutConfig(title="Combined", showlegend=True),
+    state = _EditorState.model_validate(
+        {
+            "charts": [
+                {"label": "A", "chart_type": "scatter", "data_source": "ds",
+                 "common": {"x": "x", "y": "y"}},
+                {"label": "B", "chart_type": "bar", "data_source": "ds",
+                 "common": {"x": "cat", "y": "val"}},
+            ],
+            "shared_layout": {"title": "Combined", "showlegend": True},
+        }
     )
     assert len(state.charts) == 2
     assert state.charts[0].label == "A"
@@ -141,15 +174,46 @@ def test_unified_editor_state_model():
     assert state.shared_layout.showlegend is True
 
 
-def test_chart_entry_column_fields_in_model():
-    """_ChartEntry should expose standard column fields (x, y, color, size, names, values)."""
-    from dash_chart_editor.aio.pydantic_chart_editor import _ChartEntry
+def test_chart_entry_section_models():
+    """Each chart entry should expose common/advanced/special section sub-models."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _EditorState
 
-    entry = _ChartEntry(chart_type="pie", data_source="ds", names="category", values="amount")
-    assert entry.names == "category"
-    assert entry.values == "amount"
-    assert entry.x is None
-    assert entry.y is None
+    state = _EditorState.model_validate(
+        {
+            "charts": [
+                {"chart_type": "scatter", "data_source": "ds",
+                 "common": {"x": "sepal_length", "y": "sepal_width", "color": "species"}},
+            ],
+            "shared_layout": {},
+        }
+    )
+    entry = state.charts[0]
+    assert hasattr(entry, "common")
+    assert hasattr(entry, "advanced")
+    assert hasattr(entry, "special")
+    assert entry.common.x == "sepal_length"
+    assert entry.common.y == "sepal_width"
+    assert entry.common.color == "species"
+
+
+def test_chart_entry_flat_input_reshaping():
+    """Flat input dicts (backward compat) should be reshaped into section sub-models."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _EditorState
+
+    state = _EditorState.model_validate(
+        {
+            "charts": [
+                {"chart_type": "pie", "data_source": "ds", "names": "category", "values": "amount"},
+            ],
+            "shared_layout": {},
+        }
+    )
+    entry = state.charts[0]
+    # names and values are common params → should land in common section
+    assert entry.common.names == "category"
+    assert entry.common.values == "amount"
+    # x/y are not valid kwargs for pie, so the common section should not have them
+    assert "x" not in type(entry.common).model_fields
 
 
 def test_layout_config_paper_plot_bgcolor():
@@ -178,9 +242,10 @@ def test_dynamic_chart_union_models_built_from_px():
 
 
 def test_dynamic_editor_state_accepts_chart_union_entries():
-    """_EditorState should validate entries against union models (not only _ChartEntry)."""
+    """_EditorState should validate entries against union models via flat or section dicts."""
     from dash_chart_editor.aio.pydantic_chart_editor import _EditorState
 
+    # Section-based input
     state = _EditorState.model_validate(
         {
             "charts": [
@@ -188,15 +253,13 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
                     "label": "S1",
                     "chart_type": "scatter",
                     "data_source": "Iris",
-                    "x": "sepal_length",
-                    "y": "sepal_width",
+                    "common": {"x": "sepal_length", "y": "sepal_width"},
                 },
                 {
                     "label": "P1",
                     "chart_type": "pie",
                     "data_source": "Tips",
-                    "names": "day",
-                    "values": "total_bill",
+                    "common": {"names": "day", "values": "total_bill"},
                 },
             ],
             "shared_layout": {"title": "Combined"},
@@ -206,3 +269,21 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
     assert state.charts[0].chart_type == "scatter"
     assert state.charts[1].chart_type == "pie"
     assert state.shared_layout.title == "Combined"
+
+    # Flat input (backward compat – should also be accepted via model_validator)
+    state2 = _EditorState.model_validate(
+        {
+            "charts": [
+                {
+                    "label": "S2",
+                    "chart_type": "scatter",
+                    "data_source": "Iris",
+                    "x": "sepal_length",
+                    "y": "sepal_width",
+                },
+            ],
+            "shared_layout": {},
+        }
+    )
+    assert len(state2.charts) == 1
+    assert state2.charts[0].common.x == "sepal_length"

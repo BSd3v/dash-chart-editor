@@ -60,6 +60,63 @@ NUMERIC_CONSTRAINTS: dict[str, dict[str, Any]] = {
 # Kept as a named constant so it can be easily adjusted.
 MAX_DESCRIPTION_LENGTH: int = 200
 
+# ── Chart option section classification ─────────────────────────────────────
+
+# Common: core column selectors and opacity — shown first and always visible.
+COMMON_PARAM_NAMES: frozenset[str] = frozenset({
+    "x", "y", "z", "r", "theta", "a", "b", "c", "base", "measure",
+    "color", "symbol", "size", "text",
+    "names", "values", "parents", "ids",
+    "lat", "lon", "locations",
+    "hover_name", "hover_data", "custom_data",
+    "opacity",
+})
+
+# Special: chart-type-specific behaviours (trendlines, marginals, display modes, etc.)
+SPECIAL_PARAM_NAMES: frozenset[str] = frozenset({
+    # Trendlines
+    "trendline", "trendline_options", "trendline_color_override", "trendline_scope",
+    # Marginal distributions
+    "marginal_x", "marginal_y", "marginal",
+    # Display modes / bar layout
+    "barmode", "barnorm", "violinmode", "boxmode", "stripmode",
+    "orientation", "render_mode",
+    # Stats
+    "histnorm", "histfunc", "ecdfnorm", "ecdfmode", "cumulative_enabled",
+    # Appearance / sequence overrides
+    "pattern_shape", "pattern_shape_sequence", "pattern_shape_map",
+    "symbol_sequence", "symbol_map",
+    "line_group", "line_dash", "line_dash_sequence", "line_dash_map",
+    # Donut
+    "hole",
+    # Geo
+    "geojson", "locationmode", "featureidkey", "scope", "projection",
+    "fitbounds", "basemap_visible",
+    # Polar / map
+    "start_angle", "zoom", "center", "mapbox_style",
+    # Hierarchy
+    "maxdepth", "branchvalues",
+    # Misc chart-specific
+    "notched", "notchwidth", "points",
+    # Axis transform
+    "log_x", "log_y",
+})
+
+
+def classify_chart_param(param_name: str) -> str:
+    """Return the form section for a chart parameter.
+
+    Returns one of ``'common'``, ``'advanced'``, or ``'special'``.
+    * **common** — core column selectors and opacity shown first.
+    * **advanced** — facets, animation, error bars, color scales, etc.
+    * **special** — chart-type-specific behaviours (trendlines, marginals, modes, …).
+    """
+    if param_name in COMMON_PARAM_NAMES:
+        return "common"
+    if param_name in SPECIAL_PARAM_NAMES:
+        return "special"
+    return "advanced"
+
 
 def _iter_chart_functions():
     return [
