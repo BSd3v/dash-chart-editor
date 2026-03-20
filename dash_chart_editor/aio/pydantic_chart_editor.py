@@ -251,9 +251,30 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
         "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
         "label": (str, Field(default="Chart", title="Label")),
         "data_source": (Optional[str], Field(default=None, title="Data Source")),
-        "common": (CommonSection, Field(default_factory=CommonSection, title="Common")),
-        "advanced": (AdvancedSection, Field(default_factory=AdvancedSection, title="Advanced")),
-        "special": (SpecialSection, Field(default_factory=SpecialSection, title="Special")),
+        "common": (
+            CommonSection,
+            Field(
+                default_factory=CommonSection,
+                title="Common",
+                json_schema_extra={"default_open": True},
+            ),
+        ),
+        "advanced": (
+            AdvancedSection,
+            Field(
+                default_factory=AdvancedSection,
+                title="Advanced",
+                json_schema_extra={"default_open": False},
+            ),
+        ),
+        "special": (
+            SpecialSection,
+            Field(
+                default_factory=SpecialSection,
+                title="Special",
+                json_schema_extra={"default_open": False},
+            ),
+        ),
     }
 
     return create_model(
