@@ -56,6 +56,7 @@ _LAYOUT_REF_URL = (
 # Maximum length for field descriptions/tooltips sourced from Plotly docstrings.
 # Re-exported so external tests and tooling can use the same constant.
 MAX_DESCRIPTION_LENGTH = 200
+FORM_PANEL_MAX_HEIGHT = "85vh"
 
 
 def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
@@ -453,56 +454,70 @@ class PydanticChartEditor(html.Div):
             shared_layout=_LayoutConfig(),
         )
 
-        return [
-            dmc.MantineProvider(
+        return html.Div(
+            [
+                dmc.MantineProvider(
+                    html.Div(
+                        [
+                            html.H4("Chart Editor", style={"marginBottom": "20px"}),
+                            ModelForm(
+                                item=initial_state,
+                                aio_id=self.component_id,
+                                form_id=self._FORM_ID,
+                                form_layout=AccordionFormLayout(
+                                    sections=[
+                                        FormSection(
+                                            name="Charts",
+                                            fields=["charts"],
+                                            default_open=True,
+                                        ),
+                                        FormSection(
+                                            name="Layout",
+                                            fields=["shared_layout"],
+                                            description=(
+                                                "Configure layout properties shared across all charts, "
+                                                "such as title, legend position, and background color."
+                                            ),
+                                        ),
+                                    ]
+                                ),
+                            ),
+                        ],
+                        style={
+                            "width": "35%",
+                            "padding": "20px",
+                            "maxHeight": FORM_PANEL_MAX_HEIGHT,
+                            "overflowY": "auto",
+                            "position": "sticky",
+                            "top": "10px",
+                        },
+                    )
+                ),
                 html.Div(
                     [
-                        html.H4("Chart Editor", style={"marginBottom": "20px"}),
-                        ModelForm(
-                            item=initial_state,
-                            aio_id=self.component_id,
-                            form_id=self._FORM_ID,
-                            form_layout=AccordionFormLayout(
-                                sections=[
-                                    FormSection(
-                                        name="Charts",
-                                        fields=["charts"],
-                                        default_open=True,
-                                    ),
-                                    FormSection(
-                                        name="Layout",
-                                        fields=["shared_layout"],
-                                        description=(
-                                            "Configure layout properties shared across all charts, "
-                                            "such as title, legend position, and background colour."
-                                        ),
-                                    ),
-                                ]
-                            ),
+                        dcc.Graph(
+                            id=self.ids.chart(self.component_id),
+                            style={"height": "600px"},
+                            config={
+                                "editable": True,        # allow in-chart title / axis / annotation editing
+                                "displayModeBar": True,
+                            },
                         ),
+                        html.Pre(
+                            id=self.ids.debug(self.component_id),
+                            style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
+                        ),
+                        dcc.Store(id=self.ids.data_sources(self.component_id), data=self._serialized_data_sources),
                     ],
-                    style={"width": "35%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"},
-                )
-            ),
-            html.Div(
-                [
-                    dcc.Graph(
-                        id=self.ids.chart(self.component_id),
-                        style={"height": "600px"},
-                        config={
-                            "editable": True,        # allow in-chart title / axis / annotation editing
-                            "displayModeBar": True,
-                        },
-                    ),
-                    html.Pre(
-                        id=self.ids.debug(self.component_id),
-                        style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
-                    ),
-                    dcc.Store(id=self.ids.data_sources(self.component_id), data=self._serialized_data_sources),
-                ],
-                style={"width": "63%", "display": "inline-block", "marginLeft": "2%"},
-            ),
-        ]
+                    style={"width": "63%"},
+                ),
+            ],
+            style={
+                "display": "flex",
+                "gap": "2%",
+                "alignItems": "flex-start",
+            },
+        )
 
     # ── Utility methods ────────────────────────────────────────────────────────
 
