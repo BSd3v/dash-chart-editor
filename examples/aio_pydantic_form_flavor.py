@@ -3,7 +3,7 @@ import dash
 import dash_mantine_components as dmc
 from dash import html
 import pandas as pd
-from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditorAIO
+from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditor
 
 # Sample data
 df = pd.DataFrame({
@@ -13,18 +13,18 @@ df = pd.DataFrame({
 })
 
 # Register data sources globally for the AIO
-PydanticChartEditorAIO._data_sources = {"Sample Data": df}
+data_sources = {"Sample Data": df}
 
 # Create the Dash app
 app = dash.Dash(__name__)
 
 # Instantiate the AIO component
-editor = PydanticChartEditorAIO(aio_id="demo", data_sources=PydanticChartEditorAIO._data_sources)
+editor = PydanticChartEditor(component_id="demo", data_sources=data_sources)
 
 # App layout
 app.layout = dmc.MantineProvider([
     html.H2("Pydantic Chart Editor Demo"),
-    editor.layout()
+    editor
 ])
 
 if __name__ == "__main__":

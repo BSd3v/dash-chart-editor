@@ -115,47 +115,19 @@ class _LayoutConfig(BaseModel):
                                     description="Plotly template for chart styling.")
 
 
-class _ChartEntry(BaseModel):
-    """Configuration for a single chart trace in the multi-chart editor."""
-
-    label: str = Field(default="Chart", title="Label",
-                       description="Name for this trace shown in the legend.")
-    chart_type: Optional[Literal[_CHART_TYPES]] = Field(  # type: ignore[valid-type]
-        default="scatter", title="Chart Type",
-        description="Plotly Express chart function to use for this trace.")
-    data_source: Optional[str] = Field(
-        default=None, title="Data Source",
-        description="Dataset name — must match a key in data_sources passed to PydanticChartEditor.")
-    x: Optional[str] = Field(default=None, title="X",
-                              description="Column name for the X axis.")
-    y: Optional[str] = Field(default=None, title="Y",
-                              description="Column name for the Y axis.")
-    color: Optional[str] = Field(default=None, title="Color",
-                                  description="Column name for color encoding.")
-    size: Optional[str] = Field(default=None, title="Size",
-                                 description="Column name for marker size (scatter / bubble).")
-    names: Optional[str] = Field(default=None, title="Names",
-                                  description="Column name for category labels (pie / funnel).")
-    values: Optional[str] = Field(default=None, title="Values",
-                                   description="Column name for numeric values (pie / funnel).")
-    opacity: Optional[float] = Field(default=None, title="Opacity",
-                                       description="Marker opacity between 0 (transparent) and 1 (opaque).",
-                                       ge=0.0, le=1.0, multiple_of=0.1)
 
 
 _DYNAMIC_CHART_MODELS: Optional[List[type[BaseModel]]] = None
 _DYNAMIC_CHART_UNION: Optional[Any] = None
 _DYNAMIC_EDITOR_STATE_MODEL: Optional[type[BaseModel]] = None
 
-
-def _build_dynamic_chart_model(chart_type: str, metadata: dict) -> type[BaseModel]:
-    """Build a chart-entry model for a specific Plotly Express chart type."""
+def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[BaseModel]:
+    """Build a chart-options model for a specific Plotly Express chart type (excluding chart_type and data_source)."""
     fields: Dict[str, Any] = {
+        # chart_type is required for Pydantic v2 discriminated unions
+        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
         "label": (str, Field(default="Chart", title="Label")),
-        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),  # type: ignore[valid-type]
-        "data_source": (Optional[str], Field(default=None, title="Data Source")),
     }
-
     fixed_options: dict = metadata.get("fixed_options", {})
     param_defaults: dict = metadata.get("param_defaults", {})
     param_descriptions: dict = metadata.get("param_descriptions", {})
@@ -218,7 +190,8 @@ def _build_dynamic_chart_model(chart_type: str, metadata: dict) -> type[BaseMode
             field_type = Optional[str]
         fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
 
-    return create_model(f"{chart_type.title()}ChartEntry", **fields)
+    return create_model(f"{chart_type.title()}ChartOptions", **fields)
+
 
 
 def _get_chart_union_models() -> List[type[BaseModel]]:
@@ -226,7 +199,7 @@ def _get_chart_union_models() -> List[type[BaseModel]]:
     global _DYNAMIC_CHART_MODELS
     if _DYNAMIC_CHART_MODELS is None:
         _DYNAMIC_CHART_MODELS = [
-            _build_dynamic_chart_model(chart_type, PX_CHART_METADATA[chart_type])
+                _build_dynamic_chart_options_model(chart_type, PX_CHART_METADATA[chart_type])
             for chart_type in sorted(PX_CHART_METADATA.keys())
         ]
     if not _DYNAMIC_CHART_MODELS:
@@ -242,16 +215,30 @@ def _get_chart_union_type() -> Any:
         _DYNAMIC_CHART_UNION = Union[models]
     return _DYNAMIC_CHART_UNION
 
+def _get_chart_entry_model() -> type[BaseModel]:
+    """Return the ChartEntry model with data_source, chart_type, and chart_options (union)."""
+    from typing import Annotated
+    from pydantic import Field as PydField
+    chart_options_union = _get_chart_union_type()
+    # chart_type is now a top-level field and the discriminator for the union
+    AnnotatedUnion = Annotated[chart_options_union, PydField(discriminator="chart_type")]
+    # Avoid unpacking in subscript for Python <3.11 compatibility
+    chart_type_literal = Literal[tuple(_CHART_TYPES)] if len(_CHART_TYPES) > 1 else Literal[_CHART_TYPES[0]]
+    return create_model(
+        "ChartEntry",
+        data_source=(Optional[str], Field(default=None, title="Data Source")),
+        chart_options=(AnnotatedUnion, Field(..., title="Chart Options")),
+    )
 
 def _get_editor_state_model() -> type[BaseModel]:
     """Return dynamic editor-state model containing chart union list + shared layout."""
     global _DYNAMIC_EDITOR_STATE_MODEL
     if _DYNAMIC_EDITOR_STATE_MODEL is None:
-        chart_union = _get_chart_union_type()
+        chart_entry = _get_chart_entry_model()
         _DYNAMIC_EDITOR_STATE_MODEL = create_model(
             "_DynamicEditorState",
             charts=(
-                List[chart_union],  # type: ignore[valid-type]
+                List[chart_entry],  # type: ignore[valid-type]
                 Field(
                     default_factory=list,
                     title="",
@@ -280,12 +267,12 @@ _EditorState = _get_editor_state_model()
 class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form.
 
-    The editor renders a ``ModelForm`` for ``_EditorState``, which contains:
-    - **Charts** accordion section — a pydantic-form list of ``_ChartEntry`` items,
-      each with chart type, data source, and column selectors.  The list supports
-      adding and removing charts via pydf's native list UI.
-    - **Layout** accordion section — a ``_LayoutConfig`` form for the shared layout
-      (title, legend position, background colours, etc.).
+        The editor renders a ``ModelForm`` for ``_EditorState``, which contains:
+        - **Charts** accordion section — a pydantic-form list of dynamic chart entry items,
+            each with chart type, data source, and chart-type-specific options. The list supports
+            adding and removing charts via pydf's native list UI.
+        - **Layout** accordion section — a ``_LayoutConfig`` form for the shared layout
+            (title, legend position, background colours, etc.).
 
     All charts in the list are combined as traces on a single ``dcc.Graph``.
     The shared layout is applied once to the whole figure.
@@ -349,15 +336,20 @@ class PydanticChartEditor(html.Div):
     def _build_layout(self):
         data_source_keys = list(self.data_sources.keys())
         default_data = data_source_keys[0] if data_source_keys else None
-        chart_models = _get_chart_union_models()
-        default_chart_model = chart_models[0]
+        chart_entry_model = _get_chart_entry_model()
+        # Pick a default chart type and options
+        chart_types = list(PX_CHART_METADATA.keys())
+        default_chart_type = chart_types[0] if chart_types else None
+        chart_options_models = _get_chart_union_models()
+        default_options_model = chart_options_models[0] if chart_options_models else None
+        default_options = default_options_model(label="Chart 1") if default_options_model else None
 
         initial_state = _EditorState(
             charts=[
-                default_chart_model(
-                    label="Chart 1",
+                chart_entry_model(
                     data_source=default_data,
-                )
+                    chart_options=default_options,
+                ).model_dump()
             ],
             shared_layout=_LayoutConfig(),
         )
@@ -499,30 +491,42 @@ class PydanticChartEditor(html.Div):
 
         return create_model(f"{chart_type.title()}Form", **fields)
 
-    # ── Column fields read from each _ChartEntry ───────────────────────────────
+    # ── Column fields read from each chart_options ───────────────────────────────
     _COLUMN_FIELDS = ("x", "y", "color", "size", "names", "values")
 
     @staticmethod
-    def _entry_to_figure(entry: _ChartEntry, all_sources: dict) -> Optional[go.Figure]:
-        """Render a single _ChartEntry as a Plotly figure, or return None if not renderable."""
-        if not entry.chart_type or not entry.data_source:
+    def _entry_to_figure(entry, all_sources: dict) -> Optional[go.Figure]:
+        """Render a single chart entry as a Plotly figure, or return None if not renderable."""
+        if not entry.chart_options or not entry.data_source:
             return None
         records = all_sources.get(entry.data_source, [])
         if not records:
             return None
         df = pd.DataFrame(records)
 
+        # chart_options is the type-specific options model
+        options = entry.chart_options
         kwargs: dict = {}
         for field_name in (*PydanticChartEditor._COLUMN_FIELDS, "opacity"):
-            val = getattr(entry, field_name, None)
+            val = getattr(options, field_name, None)
             if val is not None and val != "":
                 kwargs[field_name] = val
+
+        # Add any other fields from options that are not label
+        for k, v in options.model_dump(exclude_none=True).items():
+            if k not in kwargs and k not in ("label", "chart_type"):
+                kwargs[k] = v
 
         # Need at least one column kwarg to render a meaningful chart
         if not any(kwargs.get(f) for f in PydanticChartEditor._COLUMN_FIELDS):
             return None
 
-        return PydanticChartEditor._to_figure(entry.chart_type, df, kwargs)
+        # Remove label if present
+        kwargs.pop("label", None)
+        kwargs.pop("chart_type", None)
+
+        chart_type = getattr(entry.chart_options, "chart_type", None)
+        return PydanticChartEditor._to_figure(chart_type, df, kwargs)
 
     @staticmethod
     def _apply_shared_layout(fig: go.Figure, layout_cfg: _LayoutConfig) -> None:
@@ -578,12 +582,16 @@ class PydanticChartEditor(html.Div):
             try:
                 trace_fig = PydanticChartEditor._entry_to_figure(chart_entry, all_sources)
             except Exception as exc:  # pragma: no cover – surfaced in debug output below
-                render_errors.append(f"Error rendering '{chart_entry.label}': {exc}")
+                label = getattr(getattr(chart_entry, "chart_options", None), "label", None)
+                chart_type = getattr(getattr(chart_entry, "chart_options", None), "chart_type", None)
+                render_errors.append(f"Error rendering '{label}': {exc}")
                 continue
             if trace_fig is None:
                 continue
             for trace in trace_fig.data:
-                trace.name = chart_entry.label or chart_entry.chart_type or "Chart"
+                label = getattr(getattr(chart_entry, "chart_options", None), "label", None)
+                chart_type = getattr(getattr(chart_entry, "chart_options", None), "chart_type", None)
+                trace.name = label or chart_type or "Chart"
                 fig.add_trace(trace)
             has_data = True
 
