@@ -163,3 +163,46 @@ def test_layout_config_paper_plot_bgcolor():
     assert "paper_bgcolor" in _RELAYOUT_TO_LAYOUT
     assert "plot_bgcolor" in _RELAYOUT_TO_LAYOUT
 
+
+def test_dynamic_chart_union_models_built_from_px():
+    """Editor should build per-chart models dynamically from PX_CHART_METADATA."""
+    from dash_chart_editor.aio.pydantic_chart_editor import get_chart_union_models
+
+    models = get_chart_union_models()
+    assert isinstance(models, list)
+    assert len(models) == len(PX_CHART_METADATA)
+
+    names = {m.__name__ for m in models}
+    assert "ScatterChartEntry" in names
+    assert "PieChartEntry" in names
+
+
+def test_dynamic_editor_state_accepts_chart_union_entries():
+    """_EditorState should validate entries against union models (not only _ChartEntry)."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _EditorState
+
+    state = _EditorState.model_validate(
+        {
+            "charts": [
+                {
+                    "label": "S1",
+                    "chart_type": "scatter",
+                    "data_source": "Iris",
+                    "x": "sepal_length",
+                    "y": "sepal_width",
+                },
+                {
+                    "label": "P1",
+                    "chart_type": "pie",
+                    "data_source": "Tips",
+                    "names": "day",
+                    "values": "total_bill",
+                },
+            ],
+            "shared_layout": {"title": "Combined"},
+        }
+    )
+    assert len(state.charts) == 2
+    assert state.charts[0].chart_type == "scatter"
+    assert state.charts[1].chart_type == "pie"
+    assert state.shared_layout.title == "Combined"

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from typing import Any, Dict, List, Literal, Optional, Set
+from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import dash
 from dash import dcc, html, callback, Output, Input, State, MATCH, no_update
@@ -139,26 +139,142 @@ class _ChartEntry(BaseModel):
     values: Optional[str] = Field(default=None, title="Values",
                                    description="Column name for numeric values (pie / funnel).")
     opacity: Optional[float] = Field(default=None, title="Opacity",
-                                      description="Marker opacity between 0 (transparent) and 1 (opaque).",
-                                      ge=0.0, le=1.0, multiple_of=0.1)
+                                       description="Marker opacity between 0 (transparent) and 1 (opaque).",
+                                       ge=0.0, le=1.0, multiple_of=0.1)
 
 
-class _EditorState(BaseModel):
-    """Unified editor state: a list of chart entries plus a shared layout configuration."""
+_DYNAMIC_CHART_MODELS: Optional[List[type[BaseModel]]] = None
+_DYNAMIC_CHART_UNION: Optional[Any] = None
+_DYNAMIC_EDITOR_STATE_MODEL: Optional[type[BaseModel]] = None
 
-    charts: List[_ChartEntry] = Field(
-        default_factory=list,
-        title="",
-        description=(
-            "Configure individual chart traces. "
-            "Add multiple charts to overlay on the same graph."
-        ),
-    )
-    shared_layout: _LayoutConfig = Field(
-        default_factory=_LayoutConfig,
-        title="",
-        description="Layout settings shared across all charts in this figure.",
-    )
+
+def _build_dynamic_chart_model(chart_type: str, metadata: dict) -> type[BaseModel]:
+    """Build a chart-entry model for a specific Plotly Express chart type."""
+    fields: Dict[str, Any] = {
+        "label": (str, Field(default="Chart", title="Label")),
+        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),  # type: ignore[valid-type]
+        "data_source": (Optional[str], Field(default=None, title="Data Source")),
+    }
+
+    fixed_options: dict = metadata.get("fixed_options", {})
+    param_defaults: dict = metadata.get("param_defaults", {})
+    param_descriptions: dict = metadata.get("param_descriptions", {})
+    column_kwargs = set(metadata.get("column_kwargs", []))
+    multi_column_kwargs = set(metadata.get("multi_column_kwargs", []))
+
+    for arg in metadata.get("kwargs", []):
+        title = arg.replace("_", " ").title()
+        desc = param_descriptions.get(arg, "")
+        sig_default = param_defaults.get(arg)
+
+        if arg in multi_column_kwargs:
+            fields[arg] = (
+                Optional[List[str]],
+                Field(default=None, title=title, description=desc or None),
+            )
+            continue
+
+        if arg in column_kwargs:
+            fields[arg] = (
+                Optional[str],
+                Field(default=None, title=title, description=desc or None),
+            )
+            continue
+
+        if arg in fixed_options:
+            opts = tuple(dict.fromkeys(fixed_options[arg]))
+            if opts:
+                field_type = Optional[Literal[opts]]  # type: ignore[valid-type]
+                field_default = sig_default if isinstance(sig_default, str) and sig_default in opts else None
+                fields[arg] = (
+                    field_type,
+                    Field(default=field_default, title=title, description=desc or None),
+                )
+                continue
+
+        if arg in NUMERIC_CONSTRAINTS:
+            nc = NUMERIC_CONSTRAINTS[arg]
+            field_kwargs: dict = {"title": title}
+            if desc:
+                field_kwargs["description"] = desc
+            if "ge" in nc:
+                field_kwargs["ge"] = nc["ge"]
+            if "le" in nc:
+                field_kwargs["le"] = nc["le"]
+            if "multiple_of" in nc:
+                field_kwargs["multiple_of"] = nc["multiple_of"]
+            num_default = (
+                sig_default
+                if isinstance(sig_default, (int, float)) and not isinstance(sig_default, bool)
+                else None
+            )
+            fields[arg] = (Optional[nc["type"]], Field(default=num_default, **field_kwargs))
+            continue
+
+        inferred = metadata.get("arg_types", {}).get(arg, str)
+        if inferred in (bool, int, float, dict, list, str):
+            field_type = Optional[inferred]
+        else:
+            field_type = Optional[str]
+        fields[arg] = (field_type, Field(default=None, title=title, description=desc or None))
+
+    return create_model(f"{chart_type.title()}ChartEntry", **fields)
+
+
+def _get_chart_union_models() -> List[type[BaseModel]]:
+    """Return list of per-chart models built from currently available px chart metadata."""
+    global _DYNAMIC_CHART_MODELS
+    if _DYNAMIC_CHART_MODELS is None:
+        _DYNAMIC_CHART_MODELS = [
+            _build_dynamic_chart_model(chart_type, PX_CHART_METADATA[chart_type])
+            for chart_type in sorted(PX_CHART_METADATA.keys())
+        ]
+    if not _DYNAMIC_CHART_MODELS:
+        raise RuntimeError("PX_CHART_METADATA is empty; cannot build chart union models.")
+    return _DYNAMIC_CHART_MODELS
+
+
+def _get_chart_union_type() -> Any:
+    """Return Union[...] of all dynamic chart-entry models."""
+    global _DYNAMIC_CHART_UNION
+    if _DYNAMIC_CHART_UNION is None:
+        models = tuple(_get_chart_union_models())
+        _DYNAMIC_CHART_UNION = Union[models]
+    return _DYNAMIC_CHART_UNION
+
+
+def _get_editor_state_model() -> type[BaseModel]:
+    """Return dynamic editor-state model containing chart union list + shared layout."""
+    global _DYNAMIC_EDITOR_STATE_MODEL
+    if _DYNAMIC_EDITOR_STATE_MODEL is None:
+        chart_union = _get_chart_union_type()
+        _DYNAMIC_EDITOR_STATE_MODEL = create_model(
+            "_DynamicEditorState",
+            charts=(
+                List[chart_union],  # type: ignore[valid-type]
+                Field(
+                    default_factory=list,
+                    title="",
+                    description=(
+                        "Configure individual chart traces as a typed list. "
+                        "Add multiple charts to overlay on the same graph."
+                    ),
+                ),
+            ),
+            shared_layout=(
+                _LayoutConfig,
+                Field(
+                    default_factory=_LayoutConfig,
+                    title="",
+                    description="Layout settings shared across all charts in this figure.",
+                ),
+            ),
+        )
+    return _DYNAMIC_EDITOR_STATE_MODEL
+
+
+# Backward-compatible alias used in tests/imports.
+_EditorState = _get_editor_state_model()
 
 
 class PydanticChartEditor(html.Div):
@@ -233,12 +349,13 @@ class PydanticChartEditor(html.Div):
     def _build_layout(self):
         data_source_keys = list(self.data_sources.keys())
         default_data = data_source_keys[0] if data_source_keys else None
+        chart_models = _get_chart_union_models()
+        default_chart_model = chart_models[0]
 
         initial_state = _EditorState(
             charts=[
-                _ChartEntry(
+                default_chart_model(
                     label="Chart 1",
-                    chart_type="scatter",
                     data_source=default_data,
                 )
             ],
@@ -539,3 +656,8 @@ def create_pydantic_chart_editor_app(
     ])
 
     return app
+
+
+def get_chart_union_models() -> List[type[BaseModel]]:
+    """Public helper exposing dynamically created per-chart models."""
+    return _get_chart_union_models()
