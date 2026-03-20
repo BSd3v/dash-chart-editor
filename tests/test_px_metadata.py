@@ -159,16 +159,16 @@ def test_unified_editor_state_model():
     state = _EditorState.model_validate(
         {
             "charts": [
-                {"label": "A", "chart_type": "scatter", "data_source": "ds",
+                {"name": "A", "chart_type": "scatter", "data_source": "ds",
                  "common": {"x": "x", "y": "y"}},
-                {"label": "B", "chart_type": "bar", "data_source": "ds",
+                {"name": "B", "chart_type": "bar", "data_source": "ds",
                  "common": {"x": "cat", "y": "val"}},
             ],
             "shared_layout": {"title": "Combined", "showlegend": True},
         }
     )
     assert len(state.charts) == 2
-    assert state.charts[0].label == "A"
+    assert state.charts[0].name == "A"
     assert state.charts[1].chart_type == "bar"
     assert state.shared_layout.title == "Combined"
     assert state.shared_layout.showlegend is True
@@ -250,13 +250,13 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
         {
             "charts": [
                 {
-                    "label": "S1",
+                    "name": "S1",
                     "chart_type": "scatter",
                     "data_source": "Iris",
                     "common": {"x": "sepal_length", "y": "sepal_width"},
                 },
                 {
-                    "label": "P1",
+                    "name": "P1",
                     "chart_type": "pie",
                     "data_source": "Tips",
                     "common": {"names": "day", "values": "total_bill"},
@@ -275,7 +275,7 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
         {
             "charts": [
                 {
-                    "label": "S2",
+                    "name": "S2",
                     "chart_type": "scatter",
                     "data_source": "Iris",
                     "x": "sepal_length",
@@ -287,3 +287,18 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
     )
     assert len(state2.charts) == 1
     assert state2.charts[0].common.x == "sepal_length"
+
+
+def test_dynamic_editor_state_legacy_label_maps_to_name():
+    """Legacy `label` should still be accepted and mapped to `name`."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _EditorState
+
+    state = _EditorState.model_validate(
+        {
+            "charts": [
+                {"label": "Legacy", "chart_type": "scatter", "data_source": "Iris"},
+            ],
+            "shared_layout": {},
+        }
+    )
+    assert state.charts[0].name == "Legacy"

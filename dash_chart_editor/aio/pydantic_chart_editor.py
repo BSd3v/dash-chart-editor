@@ -229,8 +229,11 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
         adv_d: Dict[str, Any] = {}
         spec_d: Dict[str, Any] = {}
         for k, v in data.items():
-            if k in ("chart_type", "label", "data_source"):
+            if k in ("chart_type", "name", "data_source"):
                 top[k] = v
+            elif k == "label":
+                # Backward compatibility: legacy payloads used "label".
+                top["name"] = v
             elif k in _common_set:
                 common_d[k] = v
             elif k in _special_set:
@@ -249,7 +252,7 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
     fields: Dict[str, Any] = {
         # chart_type is the Pydantic v2 discriminator field for the union.
         "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
-        "label": (str, Field(default="Chart", title="Label")),
+        "name": (str, Field(default="Chart", title="Name")),
         "data_source": (Optional[str], Field(default=None, title="Data Source")),
         "common": (
             CommonSection,
@@ -356,7 +359,7 @@ _EditorState = _get_editor_state_model()
 _ChartEntry = create_model(
     "_ChartEntry",
     chart_type=(str, Field(default="scatter", title="Chart Type")),
-    label=(str, Field(default="Chart", title="Label")),
+    name=(str, Field(default="Chart", title="Name")),
     data_source=(Optional[str], Field(default=None, title="Data Source")),
     x=(Optional[str], Field(default=None, title="X")),
     y=(Optional[str], Field(default=None, title="Y")),
@@ -443,7 +446,7 @@ class PydanticChartEditor(html.Div):
         default_data = data_source_keys[0] if data_source_keys else None
         chart_union_models = _get_chart_union_models()
         default_chart_model = chart_union_models[0] if chart_union_models else None
-        default_entry = default_chart_model(label="Chart 1", data_source=default_data) if default_chart_model else None
+        default_entry = default_chart_model(name="Chart 1", data_source=default_data) if default_chart_model else None
 
         initial_state = _EditorState(
             charts=[default_entry.model_dump()] if default_entry else [],
@@ -594,7 +597,9 @@ class PydanticChartEditor(html.Div):
                       "lat", "lon", "locations", "hover_name")
 
     # Fields to skip when flattening section sub-models into Plotly Express kwargs.
-    _SECTION_SKIP: frozenset = frozenset({"label", "chart_type", "data_source",
+    # Keep legacy 'label' here so old payloads never leak it into Plotly Express calls
+    # as an unexpected kwarg during flattening.
+    _SECTION_SKIP: frozenset = frozenset({"name", "label", "chart_type", "data_source",
                                           "common", "advanced", "special"})
 
     @staticmethod
@@ -620,6 +625,11 @@ class PydanticChartEditor(html.Div):
                 if k not in PydanticChartEditor._SECTION_SKIP and v is not None and v != "" and v != []:
                     kwargs[k] = v
         return kwargs
+
+    @staticmethod
+    def _entry_display_name(entry) -> Optional[str]:
+        """Return the best available display name for a chart entry."""
+        return getattr(entry, "name", None) or getattr(entry, "label", None)
 
     @staticmethod
     def _entry_to_figure(entry, all_sources: dict) -> Optional[go.Figure]:
@@ -695,14 +705,14 @@ class PydanticChartEditor(html.Div):
             try:
                 trace_fig = PydanticChartEditor._entry_to_figure(chart_entry, all_sources)
             except Exception as exc:  # pragma: no cover – surfaced in debug output below
-                label = getattr(chart_entry, "label", None)
+                label = PydanticChartEditor._entry_display_name(chart_entry)
                 chart_type = getattr(chart_entry, "chart_type", None)
                 render_errors.append(f"Error rendering '{label or chart_type}': {exc}")
                 continue
             if trace_fig is None:
                 continue
             for trace in trace_fig.data:
-                label = getattr(chart_entry, "label", None)
+                label = PydanticChartEditor._entry_display_name(chart_entry)
                 chart_type = getattr(chart_entry, "chart_type", None)
                 trace.name = label or chart_type or "Chart"
                 fig.add_trace(trace)
