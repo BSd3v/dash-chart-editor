@@ -1095,7 +1095,7 @@ class PydanticChartEditor(html.Div):
                 filters = transforms.get("filters", [])
                 if isinstance(filters, list):
                     transforms["filters"] = [
-                        # Preserve non-dict entries as-is (e.g., already-serialised filter objects)
+                        # Preserve non-dict entries as-is (e.g., already-serialized filter objects)
                         f for f in filters if not isinstance(f, dict) or f.get("column") in valid_cols
                     ]
                 gb = transforms.get("group_by")
