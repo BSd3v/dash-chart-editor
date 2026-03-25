@@ -4,6 +4,7 @@ from dash_chart_editor.aio.px_metadata import (
 )
 from dash_chart_editor.aio.pydantic_chart_editor import (
     _RELAYOUT_TO_LAYOUT, _PX_API_BASE, PydanticChartEditor,
+    _build_charts_fields_repr, _EditorState,
 )
 
 
@@ -502,3 +503,107 @@ def test_pydantic_chart_editor_stores_all_columns():
     x_options = common_repr["x"].options_labels
     assert "a" in x_options, "column 'a' not in x Select options"
     assert "c" in x_options, "column 'c' not in x Select options"
+
+
+# ── Dynamic callback logic tests ─────────────────────────────────────────────
+
+def test_track_selected_sources_updates_on_change():
+    """track_selected_sources logic: returns new list when sources change, no_update when same."""
+    from dash import no_update
+
+    def _track(form_data, prev_sources):
+        """Mirror the callback logic without Dash context."""
+        if not form_data:
+            return no_update
+        charts = form_data.get("charts", [])
+        new_sources = [
+            c.get("data_source") if isinstance(c, dict) else None
+            for c in charts
+        ]
+        if new_sources == (prev_sources or []):
+            return no_update
+        return new_sources
+
+    # Sources change → should return new list
+    form_data = {"charts": [{"data_source": "iris"}, {"data_source": "tips"}]}
+    result = _track(form_data, ["iris"])
+    assert result == ["iris", "tips"]
+
+    # Sources unchanged → no_update
+    result = _track(form_data, ["iris", "tips"])
+    assert result is no_update
+
+    # Empty form_data → no_update
+    result = _track({}, ["iris"])
+    assert result is no_update
+
+    # None form_data → no_update
+    result = _track(None, None)
+    assert result is no_update
+
+
+def test_clean_form_data_removes_invalid_columns():
+    """_clean_form_data_for_sources should clear column values not in the selected source."""
+    col_names = {
+        "iris": ["sepal_length", "sepal_width", "species"],
+        "tips": ["total_bill", "tip", "sex"],
+    }
+    form_data = {
+        "charts": [
+            {
+                "data_source": "iris",
+                "common": {
+                    "x": "sepal_length",   # valid for iris
+                    "y": "total_bill",     # invalid for iris (belongs to tips)
+                    "color": "species",    # valid for iris
+                },
+            },
+            {
+                "data_source": "tips",
+                "common": {
+                    "x": "total_bill",     # valid for tips
+                    "y": "sepal_width",    # invalid for tips
+                },
+            },
+        ]
+    }
+    cleaned = PydanticChartEditor._clean_form_data_for_sources(form_data, col_names)
+
+    iris_common = cleaned["charts"][0]["common"]
+    assert iris_common.get("x") == "sepal_length", "valid x should be kept"
+    assert "y" not in iris_common, "invalid y (total_bill) should be dropped for iris"
+    assert iris_common.get("color") == "species", "valid color should be kept"
+
+    tips_common = cleaned["charts"][1]["common"]
+    assert tips_common.get("x") == "total_bill", "valid x should be kept"
+    assert "y" not in tips_common, "invalid y (sepal_width) should be dropped for tips"
+
+
+def test_rebuild_form_changes_fields_repr_options():
+    """rebuild_form_on_source_change should produce column options from selected sources only."""
+    col_names = {
+        "iris": ["sepal_length", "sepal_width", "species"],
+        "tips": ["total_bill", "tip", "sex"],
+    }
+
+    # Simulate what rebuild_form_on_source_change does internally
+    selected_sources = ["iris"]
+    selected_cols = set()
+    for src in selected_sources:
+        if src and src in col_names:
+            selected_cols.update(col_names[src])
+    all_selected_cols = sorted(selected_cols)
+
+    charts_fields_repr = _build_charts_fields_repr(list(col_names.keys()), all_selected_cols)
+    inner = charts_fields_repr.get("fields_repr", {})
+    common_repr = inner.get("common", {}).get("fields_repr", {})
+
+    x_field = common_repr.get("x")
+    assert x_field is not None, "x field repr should exist"
+    x_options = x_field.options_labels
+
+    # Only iris columns should be in the options (not tips columns)
+    assert "sepal_length" in x_options
+    assert "sepal_width" in x_options
+    assert "total_bill" not in x_options, "tips column should not appear when only iris is selected"
+    assert "tip" not in x_options, "tips column should not appear when only iris is selected"

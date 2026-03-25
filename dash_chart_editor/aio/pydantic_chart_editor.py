@@ -34,6 +34,16 @@ _PYDF_FORM_ID = "pydantic-chart-editor-form"
 # All chart type names available from Plotly Express metadata.
 _CHART_TYPES: tuple = tuple(sorted(PX_CHART_METADATA.keys()))
 
+# All single-column and multi-column kwargs across all chart types (for column value cleaning).
+_ALL_SINGLE_COL_KWARGS: frozenset = frozenset(
+    kw for meta in PX_CHART_METADATA.values() for kw in meta.get("column_kwargs", [])
+)
+_ALL_MULTI_COL_KWARGS: frozenset = frozenset(
+    kw for meta in PX_CHART_METADATA.values() for kw in meta.get("multi_column_kwargs", [])
+# x and y appear in multi_column_kwargs for some chart types but are handled as single-column
+# Select fields; exclude them here so they are cleaned via _ALL_SINGLE_COL_KWARGS instead.
+) - frozenset({"x", "y"})
+
 # Maps Plotly relayoutData keys → _LayoutConfig field names.
 # Used by sync_relayout_to_form to keep the layout form in step when the user
 # edits the chart directly (click-to-edit title, drag legend, etc.).
@@ -735,6 +745,18 @@ class PydanticChartEditor(html.Div):
         def data_sources(aio_id):
             return {"component": "PydanticChartEditor", "subcomponent": "data_sources", "aio_id": aio_id}
 
+        @staticmethod
+        def form_wrapper(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "form-wrapper", "aio_id": aio_id}
+
+        @staticmethod
+        def selected_sources_store(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "selected-sources", "aio_id": aio_id}
+
+        @staticmethod
+        def col_names_store(aio_id):
+            return {"component": "PydanticChartEditor", "subcomponent": "col-names", "aio_id": aio_id}
+
     def __init__(
         self,
         data_sources: Optional[Dict[str, pd.DataFrame]] = None,
@@ -795,28 +817,16 @@ class PydanticChartEditor(html.Div):
                     html.Div(
                         [
                             html.H4("Chart Editor", style={"marginBottom": "20px"}),
-                            ModelForm(
-                                item=initial_state,
-                                aio_id=self.component_id,
-                                form_id=self._FORM_ID,
-                                form_layout=AccordionFormLayout(
-                                    sections=[
-                                        FormSection(
-                                            name="Charts",
-                                            fields=["charts"],
-                                            default_open=True,
-                                        ),
-                                        FormSection(
-                                            name="Layout",
-                                            fields=["shared_layout"],
-                                            description=(
-                                                "Configure layout properties shared across all charts, "
-                                                "such as title, legend position, and background color."
-                                            ),
-                                        ),
-                                    ]
-                                ),
-                                fields_repr={"charts": charts_fields_repr},
+                            html.Div(
+                                id=self.ids.form_wrapper(self.component_id),
+                                children=[
+                                    PydanticChartEditor._build_model_form(
+                                        self.component_id,
+                                        self._FORM_ID,
+                                        initial_state,
+                                        charts_fields_repr,
+                                    )
+                                ],
                             ),
                         ],
                         style={
@@ -844,6 +854,11 @@ class PydanticChartEditor(html.Div):
                             style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
                         ),
                         dcc.Store(id=self.ids.data_sources(self.component_id), data=self._serialized_data_sources),
+                        dcc.Store(id=self.ids.selected_sources_store(self.component_id), data=[]),
+                        dcc.Store(
+                            id=self.ids.col_names_store(self.component_id),
+                            data={name: list(df.columns) for name, df in self.data_sources.items()},
+                        ),
                     ],
                     style={"width": "63%"},
                 ),
@@ -953,6 +968,10 @@ class PydanticChartEditor(html.Div):
     _SECTION_SKIP: frozenset = frozenset({"name", "label", "chart_type", "data_source",
                                           "common", "advanced", "special", "transforms"})
 
+    # Transform sub-fields that are column references (need cleaning when data source changes)
+    _TRANSFORM_COL_FIELDS: frozenset = frozenset({"column", "sort_column"})
+    _TRANSFORM_MULTI_COL_FIELDS: frozenset = frozenset({"group_by_columns", "agg_columns"})
+
     @staticmethod
     def _flatten_entry_kwargs(entry) -> dict:
         """Flatten kwargs from an entry's section sub-models (common, advanced, special).
@@ -1028,7 +1047,174 @@ class PydanticChartEditor(html.Div):
         if layout_update:
             fig.update_layout(**layout_update)
 
+    @staticmethod
+    def _clean_form_data_for_sources(form_data: dict, col_names: dict) -> dict:
+        """Clear column field values that don't belong to the entry's selected data source.
+
+        ``col_names`` maps source_name → [column, ...].
+        Returns a new form_data dict with invalid column values removed.
+        """
+        if not form_data:
+            return form_data
+        result = dict(form_data)
+        charts = list(result.get("charts", []))
+        new_charts = []
+        for chart in charts:
+            if not isinstance(chart, dict):
+                new_charts.append(chart)
+                continue
+            chart = dict(chart)
+            ds = chart.get("data_source")
+            valid_cols: set = set(col_names.get(ds, [])) if ds and col_names else set()
+            if not valid_cols:
+                new_charts.append(chart)
+                continue
+            # Clean section sub-model column fields
+            for section_name in ("common", "advanced", "special"):
+                section = chart.get(section_name)
+                if not isinstance(section, dict):
+                    continue
+                cleaned: dict = {}
+                for k, v in section.items():
+                    if k in _ALL_SINGLE_COL_KWARGS:
+                        if isinstance(v, str) and v in valid_cols:
+                            cleaned[k] = v
+                        # else: drop invalid column
+                    elif k in _ALL_MULTI_COL_KWARGS:
+                        if isinstance(v, list):
+                            kept = [c for c in v if c in valid_cols]
+                            if kept:
+                                cleaned[k] = kept
+                    else:
+                        cleaned[k] = v
+                chart[section_name] = cleaned
+            # Clean transform column fields
+            transforms = chart.get("transforms")
+            if isinstance(transforms, dict):
+                transforms = dict(transforms)
+                filters = transforms.get("filters", [])
+                if isinstance(filters, list):
+                    transforms["filters"] = [
+                        # Preserve non-dict entries as-is (e.g., already-serialised filter objects)
+                        f for f in filters if not isinstance(f, dict) or f.get("column") in valid_cols
+                    ]
+                gb = transforms.get("group_by")
+                if isinstance(gb, dict):
+                    gb = dict(gb)
+                    if "group_by_columns" in gb:
+                        gb["group_by_columns"] = [c for c in (gb["group_by_columns"] or []) if c in valid_cols]
+                    if "agg_columns" in gb:
+                        gb["agg_columns"] = [c for c in (gb["agg_columns"] or []) if c in valid_cols]
+                    transforms["group_by"] = gb
+                sort = transforms.get("sort")
+                if isinstance(sort, dict):
+                    sort = dict(sort)
+                    if sort.get("sort_column") not in valid_cols:
+                        # Set to None (not deleted) so Pydantic validation clears the Optional field.
+                        sort["sort_column"] = None
+                    transforms["sort"] = sort
+                chart["transforms"] = transforms
+            new_charts.append(chart)
+        result["charts"] = new_charts
+        return result
+
+    @staticmethod
+    def _build_model_form(aio_id: str, form_id: str, state: "_EditorState", charts_fields_repr: dict) -> "ModelForm":
+        """Build a ModelForm component for the given state and fields_repr."""
+        return ModelForm(
+            item=state,
+            aio_id=aio_id,
+            form_id=form_id,
+            form_layout=AccordionFormLayout(
+                sections=[
+                    FormSection(name="Charts", fields=["charts"], default_open=True),
+                    FormSection(
+                        name="Layout",
+                        fields=["shared_layout"],
+                        description=(
+                            "Configure layout properties shared across all charts, "
+                            "such as title, legend position, and background color."
+                        ),
+                    ),
+                ]
+            ),
+            fields_repr={"charts": charts_fields_repr},
+        )
+
     # ── Auto-wired AIO callbacks ───────────────────────────────────────────────
+
+    @staticmethod
+    @callback(
+        Output(ids.selected_sources_store(MATCH), "data"),
+        Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
+        State(ids.selected_sources_store(MATCH), "data"),
+        prevent_initial_call=True,
+    )
+    def track_selected_sources(form_data, prev_sources):
+        """Track which data_source each chart entry has selected.
+
+        Only updates the store when the list of selected sources actually changes,
+        which breaks potential circular-update chains with rebuild_form_on_source_change.
+        """
+        if not form_data:
+            return no_update
+        charts = form_data.get("charts", [])
+        new_sources = [
+            c.get("data_source") if isinstance(c, dict) else None
+            for c in charts
+        ]
+        if new_sources == (prev_sources or []):
+            return no_update
+        return new_sources
+
+    @staticmethod
+    @callback(
+        Output(ids.form_wrapper(MATCH), "children"),
+        Input(ids.selected_sources_store(MATCH), "data"),
+        State(ids.col_names_store(MATCH), "data"),
+        State(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
+        prevent_initial_call=True,
+    )
+    def rebuild_form_on_source_change(selected_sources, col_names, form_data):
+        """Rebuild the ModelForm with column dropdowns filtered to currently selected sources.
+
+        Computes the union of columns from all currently selected data sources across all
+        chart entries, rebuilds ``fields_repr`` with those as dropdown options, clears any
+        column values that are no longer valid for the newly selected source, then
+        re-renders the ModelForm with the cleaned state and updated field options.
+        """
+        if not selected_sources or not col_names:
+            return no_update
+
+        from dash import callback_context
+        triggered = callback_context.triggered_id
+        aio_id = triggered.get("aio_id") if isinstance(triggered, dict) else None
+        if not aio_id:
+            return no_update
+
+        # Columns from all currently-selected sources (union)
+        selected_cols: set = set()
+        for src in selected_sources:
+            if src and src in col_names:
+                selected_cols.update(col_names[src])
+        all_selected_cols = sorted(selected_cols)
+
+        # Rebuild fields_repr with filtered column options
+        data_source_names = list(col_names.keys())
+        charts_fields_repr = _build_charts_fields_repr(data_source_names, all_selected_cols)
+
+        # Clean invalid column values from form data
+        cleaned = PydanticChartEditor._clean_form_data_for_sources(form_data or {}, col_names)
+        try:
+            state = _EditorState.model_validate(cleaned)
+        except Exception:
+            try:
+                state = _EditorState.model_validate(form_data or {})
+            except Exception:
+                return no_update
+
+        form_id = PydanticChartEditor._FORM_ID
+        return [PydanticChartEditor._build_model_form(aio_id, form_id, state, charts_fields_repr)]
 
     @staticmethod
     @callback(
