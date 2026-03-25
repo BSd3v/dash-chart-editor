@@ -143,13 +143,54 @@ class _DataFilter(BaseModel):
 class _DataGroupBy(BaseModel):
     """Group-by + aggregation applied to the DataFrame before charting."""
 
-    group_by: Optional[str] = Field(default=None, title="Group By Column",
-                                     description="Column to group the data by.")
-    agg_column: Optional[str] = Field(default=None, title="Aggregate Column",
-                                       description="Column to aggregate. Leave blank to count rows.")
+    group_by_columns: List[str] = Field(
+        default_factory=list,
+        title="Group By Columns",
+        description="One or more columns to group by.",
+    )
+    agg_columns: List[str] = Field(
+        default_factory=list,
+        title="Aggregate Columns",
+        description="One or more columns to aggregate. Leave empty to count rows per group.",
+    )
     agg_function: Optional[_AGG_FUNCTIONS] = Field(  # type: ignore[assignment]
         default="sum", title="Aggregation Function",
         description="Aggregation applied to the selected column.")
+
+    @staticmethod
+    def _normalize_to_str_list(v: Any) -> List[str]:
+        """Normalize a single string or list of strings to a clean list."""
+        if v is None or v == "":
+            return []
+        if isinstance(v, str):
+            return [v]
+        # Only string column names are supported for group and aggregate fields.
+        if isinstance(v, list):
+            # Keep only non-empty string tokens so tag-style list inputs stay clean.
+            return [item for item in v if isinstance(item, str) and item]
+        return []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_groupby_fields(cls, value: Any) -> Any:
+        """Normalize legacy singular keys and string inputs into list fields."""
+        if not isinstance(value, dict):
+            return value
+
+        result = dict(value)
+
+        # Backward compatibility for legacy payloads.
+        if "group_by" in result and "group_by_columns" not in result:
+            result["group_by_columns"] = result.get("group_by")
+        if "agg_column" in result and "agg_columns" not in result:
+            result["agg_columns"] = result.get("agg_column")
+        # Remove legacy keys after migration.
+        result.pop("group_by", None)
+        result.pop("agg_column", None)
+
+        result["group_by_columns"] = cls._normalize_to_str_list(result.get("group_by_columns"))
+        result["agg_columns"] = cls._normalize_to_str_list(result.get("agg_columns"))
+        return result
 
 
 class _DataSort(BaseModel):
@@ -229,13 +270,15 @@ def _apply_transforms(df: pd.DataFrame, transforms: Optional[_DataTransforms]) -
 
     # 2. Group-by / aggregation.
     gb = transforms.group_by
-    if gb and gb.group_by and gb.group_by in df.columns:
+    group_cols = [col for col in (gb.group_by_columns if gb else []) if col in df.columns]
+    if gb and group_cols:
         agg_fn = gb.agg_function or "sum"
-        if gb.agg_column and gb.agg_column in df.columns:
-            df = df.groupby(gb.group_by, as_index=False)[gb.agg_column].agg(agg_fn)
+        agg_cols = [col for col in gb.agg_columns if col in df.columns]
+        if agg_cols:
+            df = df.groupby(group_cols, as_index=False)[agg_cols].agg(agg_fn)
         else:
             # Count rows per group.
-            df = df.groupby(gb.group_by, as_index=False).size().rename(columns={"size": "count"})
+            df = df.groupby(group_cols, as_index=False).size().rename(columns={"size": "count"})
 
     # 3. Sort.
     s = transforms.sort

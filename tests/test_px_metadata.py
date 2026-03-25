@@ -345,11 +345,65 @@ def test_data_groupby_aggregation():
         "amount": [10, 20, 30, 40],
     })
     transforms = _DataTransforms(
-        group_by=_DataGroupBy(group_by="category", agg_column="amount", agg_function="sum")
+        group_by=_DataGroupBy(group_by_columns=["category"], agg_columns=["amount"], agg_function="sum")
     )
     result = _apply_transforms(df, transforms)
     result = result.sort_values("category").reset_index(drop=True)
     assert list(result["amount"]) == [40, 60]  # A=10+30, B=20+40
+
+
+def test_data_groupby_multi_columns_and_aggregates():
+    """_apply_transforms: multi-column group-by and multi-column aggregate should work."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import (
+        _apply_transforms, _DataTransforms, _DataGroupBy,
+    )
+
+    df = pd.DataFrame({
+        "region": ["E", "E", "W", "W"],
+        "segment": ["A", "A", "A", "B"],
+        "sales": [10, 20, 30, 40],
+        "profit": [1, 2, 3, 4],
+    })
+    transforms = _DataTransforms(
+        group_by=_DataGroupBy(
+            group_by_columns=["region", "segment"],
+            agg_columns=["sales", "profit"],
+            agg_function="sum",
+        )
+    )
+    result = _apply_transforms(df, transforms).sort_values(["region", "segment"]).reset_index(drop=True)
+    assert list(result["region"]) == ["E", "W", "W"]
+    assert list(result["segment"]) == ["A", "A", "B"]
+    assert list(result["sales"]) == [30, 30, 40]
+    assert list(result["profit"]) == [3, 3, 4]
+
+
+def test_data_groupby_legacy_keys_map_to_lists():
+    """_DataGroupBy should map legacy singular keys to list fields."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _DataGroupBy
+
+    gb = _DataGroupBy.model_validate({"group_by": "category", "agg_column": "amount"})
+    assert gb.group_by_columns == ["category"]
+    assert gb.agg_columns == ["amount"]
+    assert gb.agg_function == "sum"
+
+
+def test_data_groupby_legacy_keys_end_to_end():
+    """Legacy group_by/agg_column keys should still work through _apply_transforms."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _apply_transforms, _DataTransforms
+
+    df = pd.DataFrame({
+        "category": ["A", "A", "B"],
+        "amount": [5, 7, 3],
+    })
+    transforms = _DataTransforms.model_validate(
+        {"group_by": {"group_by": "category", "agg_column": "amount", "agg_function": "sum"}}
+    )
+    result = _apply_transforms(df, transforms).sort_values("category").reset_index(drop=True)
+    assert list(result["category"]) == ["A", "B"]
+    assert list(result["amount"]) == [12, 3]
 
 
 def test_data_sort():
