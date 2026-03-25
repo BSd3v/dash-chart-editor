@@ -260,7 +260,6 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
             Field(
                 default_factory=CommonSection,
                 title="Common",
-                json_schema_extra={"default_open": True},
             ),
         ),
         "advanced": (
@@ -268,7 +267,6 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
             Field(
                 default_factory=AdvancedSection,
                 title="Advanced",
-                json_schema_extra={"default_open": False},
             ),
         ),
         "special": (
@@ -276,7 +274,6 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
             Field(
                 default_factory=SpecialSection,
                 title="Special",
-                json_schema_extra={"default_open": False},
             ),
         ),
     }
@@ -372,6 +369,69 @@ _ChartEntry = create_model(
 )
 
 
+from dash_pydantic_form.form_layouts.form_layout import FormLayout
+from typing import Any, Literal
+from dash import html
+
+
+class FlatSectionFormLayout(FormLayout):
+    layout: Literal["flat-section"] = "flat-section"
+    color: str = "red"
+
+    def render(
+        self,
+        *,
+        field_inputs: dict[str, Any],
+        aio_id: str,
+        form_id: str,
+        path: str,
+        read_only: bool,
+        form_cols: int,
+    ) -> list:
+        def extract_fields(component):
+            # If this is a list, flatten all children
+            if isinstance(component, list):
+                result = []
+                for c in component:
+                    result.extend(extract_fields(c))
+                return result
+            # If this is an AccordionItem, stop here
+            if isinstance(component, dmc.AccordionItem):
+                return component
+            # If this is a Dash component with children, recurse
+            if hasattr(component, "children"):
+                return extract_fields(component.children)
+            # Otherwise, this is a leaf node (input field)
+            return None
+        
+        # Helper to flatten a subform's fields
+        def flatten_subform(subform, value=None):
+            # return first accordion item children if it's an AccordionFormLayout, otherwise assume it's already flat
+            new_item = extract_fields(subform)
+            if new_item and isinstance(new_item, dmc.AccordionItem):
+                new_item.value = value
+            return new_item
+        
+        # Get subforms for each section
+        common_subform = field_inputs.get("common")
+        advanced_subform = field_inputs.get("advanced")
+        special_subform = field_inputs.get("special")
+
+        return [
+            html.Div([
+                field_inputs.get("chart_type", html.Div("No chart_type field found")),
+                field_inputs.get("name"),
+                field_inputs.get("data_source"),
+                dmc.Accordion(children=[
+                    (flatten_subform(common_subform, 'common') if common_subform else None),
+                    (flatten_subform(advanced_subform, 'advanced') if advanced_subform else None),
+                    (flatten_subform(special_subform, 'special') if special_subform else None)
+                ],
+                value='common',
+                multiple=False,
+                style={"marginTop": "15px"})
+            ])
+        ]
 
 class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form.
@@ -481,6 +541,11 @@ class PydanticChartEditor(html.Div):
                                         ),
                                     ]
                                 ),
+                                fields_repr={
+                                    'charts': {
+                                            "form_layout": FlatSectionFormLayout()                                            
+                                        },
+                                }
                             ),
                         ],
                         style={
