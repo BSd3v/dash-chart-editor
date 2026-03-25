@@ -556,6 +556,7 @@ class FlatSectionFormLayout(FormLayout):
         common_subform = field_inputs.get("common")
         advanced_subform = field_inputs.get("advanced")
         special_subform = field_inputs.get("special")
+        transorms_subform = field_inputs.get("transforms")
 
         return [
             html.Div([
@@ -565,7 +566,8 @@ class FlatSectionFormLayout(FormLayout):
                 dmc.Accordion(children=[
                     (flatten_subform(common_subform, 'common') if common_subform else None),
                     (flatten_subform(advanced_subform, 'advanced') if advanced_subform else None),
-                    (flatten_subform(special_subform, 'special') if special_subform else None)
+                    (flatten_subform(special_subform, 'special') if special_subform else None),
+                    (flatten_subform(transorms_subform, 'transforms') if transorms_subform else None),
                 ],
                 value='common',
                 multiple=False,
