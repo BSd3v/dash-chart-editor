@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
 
 from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS, classify_chart_param
-from pydantic import model_validator as _model_validator
+from pydantic import model_validator
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 
