@@ -302,3 +302,89 @@ def test_dynamic_editor_state_legacy_label_maps_to_name():
         }
     )
     assert state.charts[0].name == "Legacy"
+
+
+# ── Data transforms tests ─────────────────────────────────────────────────────
+
+def test_data_filter_equality():
+    """_apply_transforms: equality filter should remove non-matching rows."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _apply_transforms, _DataTransforms, _DataFilter
+
+    df = pd.DataFrame({"species": ["setosa", "versicolor", "setosa"], "value": [1, 2, 3]})
+    transforms = _DataTransforms(
+        filters=[_DataFilter(column="species", operator="==", value="setosa")]
+    )
+    result = _apply_transforms(df, transforms)
+    assert list(result["species"]) == ["setosa", "setosa"]
+    assert len(result) == 2
+
+
+def test_data_filter_numeric_cast():
+    """_apply_transforms: filter value is auto-cast to numeric for numeric columns."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _apply_transforms, _DataTransforms, _DataFilter
+
+    df = pd.DataFrame({"score": [10, 20, 30], "label": ["a", "b", "c"]})
+    transforms = _DataTransforms(
+        filters=[_DataFilter(column="score", operator=">", value="15")]
+    )
+    result = _apply_transforms(df, transforms)
+    assert list(result["score"]) == [20, 30]
+
+
+def test_data_groupby_aggregation():
+    """_apply_transforms: group-by with sum aggregation should aggregate correctly."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import (
+        _apply_transforms, _DataTransforms, _DataGroupBy,
+    )
+
+    df = pd.DataFrame({
+        "category": ["A", "B", "A", "B"],
+        "amount": [10, 20, 30, 40],
+    })
+    transforms = _DataTransforms(
+        group_by=_DataGroupBy(group_by="category", agg_column="amount", agg_function="sum")
+    )
+    result = _apply_transforms(df, transforms)
+    result = result.sort_values("category").reset_index(drop=True)
+    assert list(result["amount"]) == [40, 60]  # A=10+30, B=20+40
+
+
+def test_data_sort():
+    """_apply_transforms: sort descending should reverse the order."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _apply_transforms, _DataTransforms, _DataSort
+
+    df = pd.DataFrame({"val": [3, 1, 2]})
+    transforms = _DataTransforms(sort=_DataSort(sort_by="val", direction="desc"))
+    result = _apply_transforms(df, transforms)
+    assert list(result["val"]) == [3, 2, 1]
+
+
+def test_transforms_skip_on_missing_column():
+    """_apply_transforms: filter on a missing column should not raise and returns original df."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _apply_transforms, _DataTransforms, _DataFilter
+
+    df = pd.DataFrame({"a": [1, 2, 3]})
+    transforms = _DataTransforms(
+        filters=[_DataFilter(column="nonexistent", operator="==", value="x")]
+    )
+    result = _apply_transforms(df, transforms)
+    assert len(result) == 3  # unchanged
+
+
+def test_transforms_field_in_dynamic_chart_model():
+    """Dynamic chart models should include a 'transforms' field of type _DataTransforms."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _get_chart_union_models, _DataTransforms
+    models = _get_chart_union_models()
+    scatter_model = next(
+        (m for m in models if getattr(m.model_fields.get("chart_type"), "default", None) == "scatter"),
+        None,
+    )
+    assert scatter_model is not None, "Scatter model not found in union models"
+    assert "transforms" in scatter_model.model_fields
+    field_info = scatter_model.model_fields["transforms"]
+    assert field_info.annotation is _DataTransforms or issubclass(field_info.annotation, _DataTransforms)

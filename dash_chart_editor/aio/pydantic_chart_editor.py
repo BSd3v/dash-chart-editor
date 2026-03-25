@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
 
 from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS, classify_chart_param
+from pydantic import model_validator as _model_validator
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 
@@ -116,7 +117,135 @@ class _LayoutConfig(BaseModel):
                                     description="Plotly template for chart styling.")
 
 
+# ── Data transform models ─────────────────────────────────────────────────────
 
+# Pandas aggregation functions exposed in the UI.
+_AGG_FUNCTIONS = Literal[  # type: ignore[assignment]
+    "sum", "mean", "median", "min", "max", "count", "std", "var", "first", "last"
+]
+
+# Pandas sort directions
+_SORT_DIRECTIONS = Literal["asc", "desc"]  # type: ignore[assignment]
+
+
+class _DataFilter(BaseModel):
+    """A single column filter applied to the DataFrame before charting."""
+
+    column: Optional[str] = Field(default=None, title="Column",
+                                   description="DataFrame column to filter on.")
+    operator: Optional[Literal["==", "!=", ">", ">=", "<", "<="]] = Field(
+        default="==", title="Operator",
+        description="Comparison operator used for the filter.")
+    value: Optional[str] = Field(default=None, title="Value",
+                                  description="Value to compare against (strings are auto-cast).")
+
+
+class _DataGroupBy(BaseModel):
+    """Group-by + aggregation applied to the DataFrame before charting."""
+
+    group_by: Optional[str] = Field(default=None, title="Group By Column",
+                                     description="Column to group the data by.")
+    agg_column: Optional[str] = Field(default=None, title="Aggregate Column",
+                                       description="Column to aggregate. Leave blank to count rows.")
+    agg_function: Optional[_AGG_FUNCTIONS] = Field(  # type: ignore[assignment]
+        default="sum", title="Aggregation Function",
+        description="Aggregation applied to the selected column.")
+
+
+class _DataSort(BaseModel):
+    """Sort order applied to the DataFrame before charting."""
+
+    sort_by: Optional[str] = Field(default=None, title="Sort By Column",
+                                    description="Column to sort by.")
+    direction: Optional[_SORT_DIRECTIONS] = Field(  # type: ignore[assignment]
+        default="asc", title="Direction",
+        description="Sort direction: 'asc' (ascending) or 'desc' (descending).")
+
+
+class _DataTransforms(BaseModel):
+    """Per-chart data transforms applied to the DataFrame before it is passed to Plotly."""
+
+    filters: List[_DataFilter] = Field(
+        default_factory=list,
+        title="Filters",
+        description=(
+            "Row filters applied in sequence. "
+            "Add one entry per column you want to filter on."
+        ),
+    )
+    group_by: Optional[_DataGroupBy] = Field(
+        default_factory=_DataGroupBy,
+        title="Group By",
+        description="Optionally group and aggregate the data before charting.",
+    )
+    sort: Optional[_DataSort] = Field(
+        default_factory=_DataSort,
+        title="Sort",
+        description="Optionally sort rows before charting.",
+    )
+
+
+def _apply_transforms(df: pd.DataFrame, transforms: Optional[_DataTransforms]) -> pd.DataFrame:
+    """Apply data transforms (filters, group-by, sort) to *df* and return the result.
+
+    Each step is skipped gracefully when its required fields are not set, so the
+    chart still renders even if a transform is only partially configured.
+    """
+    if transforms is None:
+        return df
+
+    # 1. Filters – applied in the order they are declared.
+    for f in (transforms.filters or []):
+        col = f.column
+        op = f.operator or "=="
+        val_raw = f.value
+        if not col or col not in df.columns or val_raw is None or val_raw == "":
+            continue
+        # Auto-cast value to the column dtype where possible.
+        try:
+            series = df[col]
+            if pd.api.types.is_numeric_dtype(series):
+                val: Any = float(val_raw)
+                if pd.api.types.is_integer_dtype(series):
+                    val = int(val)
+            elif pd.api.types.is_bool_dtype(series):
+                val = val_raw.lower() in ("true", "1", "yes")
+            else:
+                val = val_raw
+        except (ValueError, TypeError):
+            val = val_raw
+        try:
+            mask = {
+                "==": series == val,
+                "!=": series != val,
+                ">":  series > val,
+                ">=": series >= val,
+                "<":  series < val,
+                "<=": series <= val,
+            }[op]
+            df = df[mask]
+        except (TypeError, KeyError):
+            pass  # Skip invalid comparison rather than crash.
+
+    # 2. Group-by / aggregation.
+    gb = transforms.group_by
+    if gb and gb.group_by and gb.group_by in df.columns:
+        agg_fn = gb.agg_function or "sum"
+        if gb.agg_column and gb.agg_column in df.columns:
+            df = df.groupby(gb.group_by, as_index=False)[gb.agg_column].agg(agg_fn)
+        else:
+            # Count rows per group.
+            df = df.groupby(gb.group_by, as_index=False).size().rename(columns={"size": "count"})
+
+    # 3. Sort.
+    s = transforms.sort
+    if s and s.sort_by and s.sort_by in df.columns:
+        df = df.sort_values(s.sort_by, ascending=(s.direction != "desc"))
+
+    return df
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 _DYNAMIC_CHART_MODELS: Optional[List[type[BaseModel]]] = None
 _DYNAMIC_CHART_UNION: Optional[Any] = None
@@ -274,6 +403,17 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
             Field(
                 default_factory=SpecialSection,
                 title="Special",
+            ),
+        ),
+        "transforms": (
+            _DataTransforms,
+            Field(
+                default_factory=_DataTransforms,
+                title="Transforms",
+                description=(
+                    "Optional data transforms applied before the chart is rendered. "
+                    "Add filters to narrow rows, group-by to aggregate, or sort to order data."
+                ),
             ),
         ),
     }
@@ -680,7 +820,7 @@ class PydanticChartEditor(html.Div):
     # Keep legacy 'label' here so old payloads never leak it into Plotly Express calls
     # as an unexpected kwarg during flattening.
     _SECTION_SKIP: frozenset = frozenset({"name", "label", "chart_type", "data_source",
-                                          "common", "advanced", "special"})
+                                          "common", "advanced", "special", "transforms"})
 
     @staticmethod
     def _flatten_entry_kwargs(entry) -> dict:
@@ -721,6 +861,14 @@ class PydanticChartEditor(html.Div):
         if not records:
             return None
         df = pd.DataFrame(records)
+
+        # Apply per-entry data transforms (filters, group-by, sort) before charting.
+        transforms = getattr(entry, "transforms", None)
+        if transforms is not None:
+            try:
+                df = _apply_transforms(df, transforms)
+            except (ValueError, TypeError, KeyError, AttributeError):
+                pass  # Skip malformed transform config rather than crash the chart.
 
         kwargs = PydanticChartEditor._flatten_entry_kwargs(entry)
 
