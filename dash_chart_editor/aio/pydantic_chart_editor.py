@@ -1183,7 +1183,7 @@ class PydanticChartEditor(html.Div):
         column values that are no longer valid for the newly selected source, then
         re-renders the ModelForm with the cleaned state and updated field options.
         """
-        if not selected_sources or not col_names:
+        if not col_names:
             return no_update
 
         from dash import callback_context
@@ -1197,7 +1197,15 @@ class PydanticChartEditor(html.Div):
         for src in selected_sources:
             if src and src in col_names:
                 selected_cols.update(col_names[src])
-        all_selected_cols = sorted(selected_cols)
+
+        # If no source is selected yet, keep all columns available so dropdowns
+        # remain usable while users choose per-chart data sources.
+        if selected_cols:
+            all_selected_cols = sorted(selected_cols)
+        else:
+            all_selected_cols = sorted(
+                {col for cols in col_names.values() for col in cols}
+            )
 
         # Rebuild fields_repr with filtered column options
         data_source_names = list(col_names.keys())
