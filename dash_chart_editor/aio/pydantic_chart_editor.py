@@ -21,8 +21,12 @@ from pydantic import BaseModel, Field, create_model
 from pydantic import ValidationError
 
 from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
+from dash_pydantic_form import fields as pydf_fields
 
-from .px_metadata import PX_CHART_METADATA, NUMERIC_CONSTRAINTS, classify_chart_param
+from .px_metadata import (
+    PX_CHART_METADATA, NUMERIC_CONSTRAINTS, classify_chart_param,
+    COMMON_PARAM_NAMES,
+)
 from pydantic import model_validator
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
@@ -557,6 +561,86 @@ from typing import Any, Literal
 from dash import html
 
 
+def _build_charts_fields_repr(
+    data_source_names: list,
+    all_columns: list,
+) -> dict:
+    """Build the ``fields_repr`` dict for the ``charts`` list in ModelForm.
+
+    Overrides:
+    - ``data_source`` → Select dropdown populated with *data_source_names*.
+    - All column kwargs (x, y, color, etc.) in every section → Select or MultiSelect
+      dropdowns populated with *all_columns* (union of columns across all data sources).
+    - Transform column fields (filter column, group-by columns, sort column) → same.
+
+    Returns a dict suitable for ``ModelForm(fields_repr={"charts": ...})``.
+    The returned dict always contains ``"form_layout"``.  ``"fields_repr"`` is only
+    added when there are data source names or columns to populate — an empty override
+    dict would be ignored by pydf but is omitted here for clarity.
+    """
+    charts_repr: dict = {"form_layout": FlatSectionFormLayout()}
+    inner: dict = {}
+
+    if data_source_names:
+        ds_labels = {name: name for name in data_source_names}
+        inner["data_source"] = pydf_fields.Select(options_labels=ds_labels)
+
+    if all_columns:
+        col_labels = {col: col for col in all_columns}
+
+        # Collect ALL column kwargs across all chart types, split into single/multi.
+        single_col_kwargs: set = set()
+        multi_col_kwargs: set = set()
+        for ct_meta in PX_CHART_METADATA.values():
+            single_col_kwargs.update(ct_meta.get("column_kwargs", []))
+            multi_col_kwargs.update(ct_meta.get("multi_column_kwargs", []))
+        # x and y are forced to single-column (see px_metadata convention).
+        multi_col_kwargs -= {"x", "y"}
+
+        def _build_section_col_repr(section_name: str) -> dict:
+            """Return {field_name: Select/MultiSelect} for column fields in this section."""
+            rep: dict = {}
+            for f in single_col_kwargs:
+                if classify_chart_param(f) == section_name:
+                    rep[f] = pydf_fields.Select(options_labels=col_labels)
+            for f in multi_col_kwargs:
+                if classify_chart_param(f) == section_name:
+                    rep[f] = pydf_fields.MultiSelect(options_labels=col_labels)
+            return rep
+
+        for section in ("common", "advanced", "special"):
+            section_repr = _build_section_col_repr(section)
+            if section_repr:
+                inner[section] = {"fields_repr": section_repr}
+
+        # Transforms: column fields for filters, group-by, sort.
+        inner["transforms"] = {
+            "fields_repr": {
+                "filters": {
+                    "fields_repr": {
+                        "column": pydf_fields.Select(options_labels=col_labels),
+                    }
+                },
+                "group_by": {
+                    "fields_repr": {
+                        "group_by_columns": pydf_fields.MultiSelect(options_labels=col_labels),
+                        "agg_columns": pydf_fields.MultiSelect(options_labels=col_labels),
+                    }
+                },
+                "sort": {
+                    "fields_repr": {
+                        "sort_column": pydf_fields.Select(options_labels=col_labels),
+                    }
+                },
+            }
+        }
+
+    if inner:
+        charts_repr["fields_repr"] = inner
+
+    return charts_repr
+
+
 class FlatSectionFormLayout(FormLayout):
     layout: Literal["flat-section"] = "flat-section"
     color: str = "red"
@@ -699,6 +783,12 @@ class PydanticChartEditor(html.Div):
             shared_layout=_LayoutConfig(),
         )
 
+        # Union of all columns from all data sources — used to populate column Select dropdowns.
+        all_columns: list = sorted(
+            set(col for df in self.data_sources.values() for col in df.columns)
+        )
+        charts_fields_repr = _build_charts_fields_repr(data_source_keys, all_columns)
+
         return html.Div(
             [
                 dmc.MantineProvider(
@@ -726,11 +816,7 @@ class PydanticChartEditor(html.Div):
                                         ),
                                     ]
                                 ),
-                                fields_repr={
-                                    'charts': {
-                                            "form_layout": FlatSectionFormLayout()                                            
-                                        },
-                                }
+                                fields_repr={"charts": charts_fields_repr},
                             ),
                         ],
                         style={

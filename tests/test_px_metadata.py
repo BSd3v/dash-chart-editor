@@ -442,3 +442,63 @@ def test_transforms_field_in_dynamic_chart_model():
     assert "transforms" in scatter_model.model_fields
     field_info = scatter_model.model_fields["transforms"]
     assert field_info.annotation is _DataTransforms or issubclass(field_info.annotation, _DataTransforms)
+
+
+# ── Data source dropdown + column select fields_repr tests ───────────────────
+
+def test_build_charts_fields_repr_data_source_is_select():
+    """_build_charts_fields_repr: data_source override should be a Select field."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _build_charts_fields_repr
+    from dash_pydantic_form import fields as pydf_fields
+
+    repr_dict = _build_charts_fields_repr(["iris", "tips"], ["sepal_length", "sepal_width"])
+    inner = repr_dict.get("fields_repr", {})
+    ds_field = inner.get("data_source")
+    assert ds_field is not None, "data_source field repr not found"
+    assert isinstance(ds_field, pydf_fields.Select), f"Expected Select, got {type(ds_field)}"
+    assert "iris" in ds_field.options_labels
+    assert "tips" in ds_field.options_labels
+
+
+def test_build_charts_fields_repr_common_x_y_are_selects():
+    """Column kwargs in the common section should be overridden with Select."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _build_charts_fields_repr
+    from dash_pydantic_form import fields as pydf_fields
+
+    columns = ["col_a", "col_b", "col_c"]
+    repr_dict = _build_charts_fields_repr(["src1"], columns)
+    inner = repr_dict.get("fields_repr", {})
+    common_repr = inner.get("common", {}).get("fields_repr", {})
+    # x and y are common column kwargs
+    assert "x" in common_repr, "x not in common fields_repr"
+    assert "y" in common_repr, "y not in common fields_repr"
+    assert isinstance(common_repr["x"], pydf_fields.Select)
+    assert isinstance(common_repr["y"], pydf_fields.Select)
+    assert "col_a" in common_repr["x"].options_labels
+
+
+def test_build_charts_fields_repr_empty_sources_no_select():
+    """No data sources → no fields_repr overrides (form reverts to plain inputs)."""
+    from dash_chart_editor.aio.pydantic_chart_editor import _build_charts_fields_repr
+
+    repr_dict = _build_charts_fields_repr([], [])
+    # Should only have form_layout, no fields_repr
+    assert "fields_repr" not in repr_dict
+
+
+def test_pydantic_chart_editor_stores_all_columns():
+    """PydanticChartEditor should compute all_columns as union of data source columns."""
+    import pandas as pd
+    from dash_chart_editor.aio.pydantic_chart_editor import _build_charts_fields_repr
+
+    df1 = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    df2 = pd.DataFrame({"b": [5, 6], "c": [7, 8]})
+    all_columns = sorted(set(col for df in [df1, df2] for col in df.columns))
+    repr_dict = _build_charts_fields_repr(["src1", "src2"], all_columns)
+    inner = repr_dict.get("fields_repr", {})
+    common_repr = inner.get("common", {}).get("fields_repr", {})
+    # x and y Select options should include all columns (a, b, c)
+    assert "x" in common_repr, "x not in common fields_repr"
+    x_options = common_repr["x"].options_labels
+    assert "a" in x_options, "column 'a' not in x Select options"
+    assert "c" in x_options, "column 'c' not in x Select options"
