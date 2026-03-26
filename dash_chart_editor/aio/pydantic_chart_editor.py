@@ -12,7 +12,7 @@ import uuid
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import dash
-from dash import dcc, html, callback, Output, Input, State, MATCH, no_update
+from dash import dcc, html, callback, Output, Input, State, MATCH, no_update, clientside_callback, set_props
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -20,7 +20,12 @@ import dash_mantine_components as dmc
 from pydantic import BaseModel, Field, create_model
 from pydantic import ValidationError
 
-from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection
+
+from dash_pydantic_form.form_layouts.form_layout import FormLayout
+from typing import Any, Literal
+from dash import html
+
+from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection, TabsFormLayout
 from dash_pydantic_form import fields as pydf_fields
 
 from .px_metadata import (
@@ -28,6 +33,17 @@ from .px_metadata import (
     COMMON_PARAM_NAMES,
 )
 from pydantic import model_validator
+
+def clean_empty_strings(d):
+    """Recursively remove keys with empty string values from a dict."""
+    if isinstance(d, dict):
+        return {k: clean_empty_strings(v)
+                for k, v in d.items()
+                if v != ""}
+    elif isinstance(d, list):
+        return [clean_empty_strings(x) for x in d]
+    else:
+        return d
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 
@@ -55,8 +71,6 @@ _RELAYOUT_TO_LAYOUT: dict = {
     "legend.orientation": "legend_orientation",
     "legend.xanchor": "legend_xanchor",
     "legend.yanchor": "legend_yanchor",
-    "paper_bgcolor": "paper_bgcolor",
-    "plot_bgcolor": "plot_bgcolor",
     "width": "width",
     "height": "height",
 }
@@ -73,6 +87,150 @@ _LAYOUT_REF_URL = (
 MAX_DESCRIPTION_LENGTH = 200
 FORM_PANEL_MAX_HEIGHT = "85vh"
 
+class FlatLayoutFormLayout(FormLayout):
+    layout: Literal["flat-layout"] = "flat-layout"
+    color: str = "red"
+
+    def render(
+        self,
+        *,
+        field_inputs: dict[str, Any],
+        aio_id: str,
+        form_id: str,
+        path: str,
+        read_only: bool,
+        form_cols: int,
+    ) -> list:
+        def extract_fields(component):
+            if component is None:
+                return []
+            # If this is a list, flatten all children
+            if isinstance(component, list):
+                result = []
+                for c in component:
+                    if c is not None:
+                        result.extend(extract_fields(c))
+                return result
+            # If this is an AccordionPanel, stop here
+            if isinstance(component, dmc.AccordionPanel):
+                return component.children
+            # If this is a Dash component with children, recurse
+            if hasattr(component, "children") and component.children is not None:
+                return extract_fields(component.children)
+            # Otherwise, this is a leaf node (input field)
+            return []
+        
+        new_layout = extract_fields(field_inputs.get("chart_type"))
+        return [
+            field_inputs.get("name"),
+            field_inputs.get('data_source'),
+            *new_layout,
+        ]
+
+
+class FlatSectionFormLayout(FormLayout):
+    layout: Literal["flat-section"] = "flat-section"
+    color: str = "red"
+
+    def render(
+        self,
+        *,
+        field_inputs: dict[str, Any],
+        aio_id: str,
+        form_id: str,
+        path: str,
+        read_only: bool,
+        form_cols: int,
+    ) -> list:
+        def extract_fields(component):
+            # If this is a list, flatten all children
+            if isinstance(component, list):
+                result = []
+                for c in component:
+                    result.extend(extract_fields(c))
+                return result
+            # If this is an AccordionItem, stop here
+            if isinstance(component, dmc.AccordionItem):
+                return component
+            # If this is a Dash component with children, recurse
+            if hasattr(component, "children"):
+                return extract_fields(component.children)
+            # Otherwise, this is a leaf node (input field)
+            return None
+        
+        # Helper to flatten a subform's fields
+        def flatten_subform(subform, value=None):
+            # return first accordion item children if it's an AccordionFormLayout, otherwise assume it's already flat
+            new_item = extract_fields(subform)
+            if new_item and isinstance(new_item, dmc.AccordionItem):
+                new_item.value = value
+            return new_item
+        
+        # Get subforms for each section
+        common_subform = field_inputs.get("common")
+        advanced_subform = field_inputs.get("advanced")
+        special_subform = field_inputs.get("special")
+        transorms_subform = field_inputs.get("transforms")
+
+        def get_chart_type_value(component):
+            # If it's a Div with children, recurse into children
+            if hasattr(component, "children"):
+                children = component.children
+                # children can be a list or a single component
+                if isinstance(children, (list, tuple)):
+                    for child in children:
+                        val = get_chart_type_value(child)
+                        if val is not None:
+                            return val
+                else:
+                    return get_chart_type_value(children)
+            # If it's the Select/Dropdown, check for 'value'
+            if hasattr(component, "value"):
+                return component.value
+            return None
+
+        chart_type_field = field_inputs.get("chart_type", html.Div("No chart_type field found"))
+        chart_type_value = get_chart_type_value(chart_type_field)
+        # Fallback: try to get value from State or context if needed
+
+        # Build links if chart_type_value is available
+        doc_link = None
+        example_link = None
+        if chart_type_value:
+            doc_link = html.A(
+                "Plotly Express Docs",
+                href=_PX_API_BASE.format(chart_type_value),
+                target="_blank",
+                style={"marginRight": "10px"}
+            )
+            example_link = html.A(
+                "Examples",
+                href=_PX_EXAMPLES_URL,
+                target="_blank"
+            )
+
+        # Render at the top
+        header = html.Div([
+            chart_type_field,
+            html.Div([doc_link, example_link], style={"marginTop": "5px"}) if doc_link else None
+        ])
+
+        return [
+            html.Div([
+                header,
+                field_inputs.get("name"),
+                field_inputs.get("data_source"),
+                dmc.Accordion(children=[
+                    (flatten_subform(common_subform, 'common') if common_subform else None),
+                    (flatten_subform(advanced_subform, 'advanced') if advanced_subform else None),
+                    (flatten_subform(special_subform, 'special') if special_subform else None),
+                    (flatten_subform(transorms_subform, 'transforms') if transorms_subform else None),
+                ],
+                value='common',
+                multiple=False,
+                style={"marginTop": "15px"})
+            ])
+        ]
 
 def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
     """Apply user in-graph edits (from relayoutData) back onto a freshly rendered figure.
@@ -123,10 +281,6 @@ class _LayoutConfig(BaseModel):
     legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(
         default=None, title="Legend Y Anchor",
         description="Vertical anchor point for the legend position.")
-    paper_bgcolor: Optional[str] = Field(default=None, title="Paper Background Color",
-                                          description="Background color of the full figure area.")
-    plot_bgcolor: Optional[str] = Field(default=None, title="Plot Background Color",
-                                         description="Background color of the plot area.")
     template: Optional[str] = Field(default=None, title="Template",
                                     description="Plotly template for chart styling.")
 
@@ -438,9 +592,7 @@ def _build_dynamic_chart_options_model(chart_type: str, metadata: dict) -> type[
 
     fields: Dict[str, Any] = {
         # chart_type is the Pydantic v2 discriminator field for the union.
-        "chart_type": (Literal[chart_type], Field(default=chart_type, title="Chart Type")),
-        "name": (str, Field(default="Chart", title="Name")),
-        "data_source": (Optional[str], Field(default=None, title="Data Source")),
+        "chart_type": Literal[chart_type],
         "common": (
             CommonSection,
             Field(
@@ -488,7 +640,7 @@ def _get_chart_union_models() -> List[type[BaseModel]]:
     if _DYNAMIC_CHART_MODELS is None:
         _DYNAMIC_CHART_MODELS = [
                 _build_dynamic_chart_options_model(chart_type, PX_CHART_METADATA[chart_type])
-            for chart_type in sorted(PX_CHART_METADATA.keys())
+            for chart_type in sorted(PX_CHART_METADATA.keys(), key=lambda x: x.title())
         ]
     if not _DYNAMIC_CHART_MODELS:
         raise RuntimeError("PX_CHART_METADATA is empty; cannot build chart union models.")
@@ -502,6 +654,12 @@ def _get_chart_union_type() -> Any:
         models = tuple(_get_chart_union_models())
         _DYNAMIC_CHART_UNION = Union[models]
     return _DYNAMIC_CHART_UNION
+
+_get_chart_union_type()
+class StableChartEntry(BaseModel):
+    name: str = Field(default="Chart", title="Name")
+    data_source: Optional[str] = Field(default=None, title="Data Source", repr_type="Select")
+    chart_type: _DYNAMIC_CHART_UNION = Field(..., title="Chart Type", discriminator="chart_type")
 
 def _get_editor_state_model() -> type[BaseModel]:
     """Return dynamic editor-state model containing chart union list + shared layout.
@@ -523,10 +681,10 @@ def _get_editor_state_model() -> type[BaseModel]:
         _DYNAMIC_EDITOR_STATE_MODEL = create_model(
             "_DynamicEditorState",
             charts=(
-                List[AnnotatedUnion],  # type: ignore[valid-type]
+                List[StableChartEntry],  # type: ignore[valid-type]
                 Field(
                     default_factory=list,
-                    title="Charts",
+                    title="",
                     description=(
                         "Configure individual chart traces. "
                         "Add multiple charts to overlay on the same graph."
@@ -536,7 +694,7 @@ def _get_editor_state_model() -> type[BaseModel]:
             shared_layout=(
                 _LayoutConfig,
                 Field(
-                    default_factory=_LayoutConfig,
+                    default_factory=dict,
                     title="Layout",
                     description="Layout settings shared across all charts in this figure.",
                 ),
@@ -566,11 +724,6 @@ _ChartEntry = create_model(
 )
 
 
-from dash_pydantic_form.form_layouts.form_layout import FormLayout
-from typing import Any, Literal
-from dash import html
-
-
 def _build_charts_fields_repr(
     data_source_names: list,
     all_columns: list,
@@ -588,15 +741,17 @@ def _build_charts_fields_repr(
     added when there are data source names or columns to populate — an empty override
     dict would be ignored by pydf but is omitted here for clarity.
     """
-    charts_repr: dict = {"form_layout": FlatSectionFormLayout()}
+    charts_repr: dict = {'chart_type': {"form_layout": FlatSectionFormLayout()}}
     inner: dict = {}
 
     if data_source_names:
-        ds_labels = {name: name for name in data_source_names}
-        inner["data_source"] = pydf_fields.Select(options_labels=ds_labels)
+        ds_labels = [{'value': name, 'label': name} for name in data_source_names]
+        charts_repr["data_source"] = {
+            'input_kwargs': {'data': ds_labels},
+        }
 
     if all_columns:
-        col_labels = {col: col for col in all_columns}
+        col_labels = [{'value': col, 'label': col} for col in all_columns]
 
         # Collect ALL column kwargs across all chart types, split into single/multi.
         single_col_kwargs: set = set()
@@ -612,10 +767,12 @@ def _build_charts_fields_repr(
             rep: dict = {}
             for f in single_col_kwargs:
                 if classify_chart_param(f) == section_name:
-                    rep[f] = pydf_fields.Select(options_labels=col_labels)
+                    rep[f] = pydf_fields.Select(options_labels={col: col for col in all_columns}, 
+                                                input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels})
             for f in multi_col_kwargs:
                 if classify_chart_param(f) == section_name:
-                    rep[f] = pydf_fields.MultiSelect(options_labels=col_labels)
+                    rep[f] = pydf_fields.MultiSelect(options_labels={col: col for col in all_columns}, 
+                                                     input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels})
             return rep
 
         for section in ("common", "advanced", "special"):
@@ -628,89 +785,39 @@ def _build_charts_fields_repr(
             "fields_repr": {
                 "filters": {
                     "fields_repr": {
-                        "column": pydf_fields.Select(options_labels=col_labels),
+                        "column": {
+                            'repr_type': 'Select',
+                            'input_kwargs': {'data': col_labels},
+                        }
                     }
                 },
                 "group_by": {
                     "fields_repr": {
-                        "group_by_columns": pydf_fields.MultiSelect(options_labels=col_labels),
-                        "agg_columns": pydf_fields.MultiSelect(options_labels=col_labels),
+                        "group_by_columns": {
+                            'repr_type': 'MultiSelect',
+                            'input_kwargs': {'data': col_labels},
+                        },
+                        "agg_columns": {
+                            'repr_type': 'MultiSelect',
+                            'input_kwargs': {'data': col_labels},
+                        },
                     }
                 },
                 "sort": {
                     "fields_repr": {
-                        "sort_column": pydf_fields.Select(options_labels=col_labels),
+                        "sort_column": {
+                            'repr_type': 'Select',
+                            'input_kwargs': {'data': col_labels},
+                        },
                     }
                 },
             }
         }
 
     if inner:
-        charts_repr["fields_repr"] = inner
+        charts_repr['chart_type']["fields_repr"] = inner
 
     return charts_repr
-
-
-class FlatSectionFormLayout(FormLayout):
-    layout: Literal["flat-section"] = "flat-section"
-    color: str = "red"
-
-    def render(
-        self,
-        *,
-        field_inputs: dict[str, Any],
-        aio_id: str,
-        form_id: str,
-        path: str,
-        read_only: bool,
-        form_cols: int,
-    ) -> list:
-        def extract_fields(component):
-            # If this is a list, flatten all children
-            if isinstance(component, list):
-                result = []
-                for c in component:
-                    result.extend(extract_fields(c))
-                return result
-            # If this is an AccordionItem, stop here
-            if isinstance(component, dmc.AccordionItem):
-                return component
-            # If this is a Dash component with children, recurse
-            if hasattr(component, "children"):
-                return extract_fields(component.children)
-            # Otherwise, this is a leaf node (input field)
-            return None
-        
-        # Helper to flatten a subform's fields
-        def flatten_subform(subform, value=None):
-            # return first accordion item children if it's an AccordionFormLayout, otherwise assume it's already flat
-            new_item = extract_fields(subform)
-            if new_item and isinstance(new_item, dmc.AccordionItem):
-                new_item.value = value
-            return new_item
-        
-        # Get subforms for each section
-        common_subform = field_inputs.get("common")
-        advanced_subform = field_inputs.get("advanced")
-        special_subform = field_inputs.get("special")
-        transorms_subform = field_inputs.get("transforms")
-
-        return [
-            html.Div([
-                field_inputs.get("chart_type", html.Div("No chart_type field found")),
-                field_inputs.get("name"),
-                field_inputs.get("data_source"),
-                dmc.Accordion(children=[
-                    (flatten_subform(common_subform, 'common') if common_subform else None),
-                    (flatten_subform(advanced_subform, 'advanced') if advanced_subform else None),
-                    (flatten_subform(special_subform, 'special') if special_subform else None),
-                    (flatten_subform(transorms_subform, 'transforms') if transorms_subform else None),
-                ],
-                value='common',
-                multiple=False,
-                style={"marginTop": "15px"})
-            ])
-        ]
 
 class PydanticChartEditor(html.Div):
     """Standalone chart editor using dash-pydantic-form.
@@ -798,7 +905,7 @@ class PydanticChartEditor(html.Div):
         default_data = data_source_keys[0] if data_source_keys else None
         chart_union_models = _get_chart_union_models()
         default_chart_model = chart_union_models[0] if chart_union_models else None
-        default_entry = default_chart_model(name="Chart 1", data_source=default_data) if default_chart_model else None
+        default_entry = None
 
         initial_state = _EditorState(
             charts=[default_entry.model_dump()] if default_entry else [],
@@ -1013,30 +1120,43 @@ class PydanticChartEditor(html.Div):
         df = pd.DataFrame(records)
 
         # Apply per-entry data transforms (filters, group-by, sort) before charting.
-        transforms = getattr(entry, "transforms", None)
+        transforms = getattr(entry['chart_type'], "transforms", None)
         if transforms is not None:
             try:
                 df = _apply_transforms(df, transforms)
             except (ValueError, TypeError, KeyError, AttributeError):
                 pass  # Skip malformed transform config rather than crash the chart.
 
-        kwargs = PydanticChartEditor._flatten_entry_kwargs(entry)
+        kwargs = PydanticChartEditor._flatten_entry_kwargs(entry['chart_type'])
 
         # Need at least one column kwarg to render a meaningful chart.
         if not any(kwargs.get(f) for f in PydanticChartEditor._COLUMN_FIELDS):
             return None
 
-        chart_type = getattr(entry, "chart_type", None)
+        chart_type = getattr(entry["chart_type"], "chart_type", None)
+        kwargs.pop('name', None)  # name/label is used for display but not a valid px kwarg
         return PydanticChartEditor._to_figure(chart_type, df, kwargs)
 
     @staticmethod
     def _apply_shared_layout(fig: go.Figure, layout_cfg: _LayoutConfig) -> None:
         """Apply shared _LayoutConfig settings to the figure in-place."""
+        def clean_dict(d):
+            """Recursively remove empty values from a dict."""
+            if not isinstance(d, dict):
+                return d
+            cleaned = {}
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    v = clean_dict(v)
+                if v not in (None, "", [], {}, ()):
+                    cleaned[k] = v
+            return cleaned
         layout_dict = layout_cfg.model_dump(exclude_none=True)
+        layout_dict = clean_dict(layout_dict)
         legend_update: dict = {}
         layout_update: dict = {}
         for key, val in layout_dict.items():
-            if val is None or val == "" or val == []:
+            if val in (None, "", [], {}, ()):
                 continue
             if key.startswith("legend_"):
                 legend_update[key[len("legend_"):]] = val
@@ -1071,7 +1191,7 @@ class PydanticChartEditor(html.Div):
                 continue
             # Clean section sub-model column fields
             for section_name in ("common", "advanced", "special"):
-                section = chart.get(section_name)
+                section = chart['chart_type'].get(section_name)
                 if not isinstance(section, dict):
                     continue
                 cleaned: dict = {}
@@ -1125,20 +1245,16 @@ class PydanticChartEditor(html.Div):
             item=state,
             aio_id=aio_id,
             form_id=form_id,
-            form_layout=AccordionFormLayout(
+            form_layout=TabsFormLayout(
                 sections=[
                     FormSection(name="Charts", fields=["charts"], default_open=True),
-                    FormSection(
-                        name="Layout",
-                        fields=["shared_layout"],
-                        description=(
-                            "Configure layout properties shared across all charts, "
-                            "such as title, legend position, and background color."
-                        ),
-                    ),
-                ]
+                    FormSection(name="Layout", fields=["shared_layout"], default_open=False),
+                ],
+                remaining_fields_position='bottom'
             ),
-            fields_repr={"charts": charts_fields_repr},
+            fields_repr={"charts": {'fields_repr': charts_fields_repr,
+                                    'form_layout': FlatLayoutFormLayout()},
+                         },
         )
 
     # ── Auto-wired AIO callbacks ───────────────────────────────────────────────
@@ -1169,60 +1285,43 @@ class PydanticChartEditor(html.Div):
 
     @staticmethod
     @callback(
-        Output(ids.form_wrapper(MATCH), "children"),
+        Output(ids.selected_sources_store(MATCH), "data", allow_duplicate=True),
         Input(ids.selected_sources_store(MATCH), "data"),
         State(ids.col_names_store(MATCH), "data"),
+        State(ids.col_names_store(MATCH), "id"),
         State(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
         prevent_initial_call=True,
     )
-    def rebuild_form_on_source_change(selected_sources, col_names, form_data):
-        """Rebuild the ModelForm with column dropdowns filtered to currently selected sources.
-
-        Computes the union of columns from all currently selected data sources across all
-        chart entries, rebuilds ``fields_repr`` with those as dropdown options, clears any
-        column values that are no longer valid for the newly selected source, then
-        re-renders the ModelForm with the cleaned state and updated field options.
-        """
-        if not col_names:
+    def patch_column_dropdowns(selected_sources, col_names, id, form_data):
+        if not col_names or not selected_sources or not form_data:
             return no_update
 
-        from dash import callback_context
-        triggered = callback_context.triggered_id
-        aio_id = triggered.get("aio_id") if isinstance(triggered, dict) else None
-        if not aio_id:
-            return no_update
+        # For each chart entry, update the relevant dropdowns
+        for i, chart_entry in enumerate(form_data['charts']):
+            src = chart_entry.get("data_source")
+            if chart_entry.get("chart_type") is None or src is None:
+                continue  # Skip entries that aren't fully initialized yet
+            valid_cols = col_names.get(src, [])
+            for field in chart_entry['chart_type'].get("common", {}) | chart_entry['chart_type'].get("advanced", {}) | chart_entry['chart_type'].get("special", {}):
+                if field in _ALL_SINGLE_COL_KWARGS | _ALL_MULTI_COL_KWARGS:  # Add other fields as needed
+                    new_push = {"data": [{"value": c, "label": c} for c in valid_cols]}
+                    id_dict = {
+                        "component": "_pydf-value-field",
+                        "aio_id": id['aio_id'],
+                        "form_id": _PYDF_FORM_ID,
+                        "field": field,
+                        "parent": f"charts:{i}:chart_type:common",
+                        "meta": "",
+                    }
+                    # Optionally clear value if it's no longer valid
+                    current_value = form_data.get("charts", [])[i].get("chart_type", {}).get("common", {}).get(field)
+                    if _ALL_SINGLE_COL_KWARGS.__contains__(field) and isinstance(current_value, str) and current_value not in valid_cols:
+                        new_push["value"] = None
+                    elif _ALL_MULTI_COL_KWARGS.__contains__(field) and isinstance(current_value, list):
+                        new_push["value"] = [c for c in current_value if c in valid_cols] or None
+                    set_props(id_dict, new_push)
 
-        # Columns from all currently-selected sources (union)
-        selected_cols: set = set()
-        for src in selected_sources:
-            if src and src in col_names:
-                selected_cols.update(col_names[src])
-
-        # If no source is selected yet, keep all columns available so dropdowns
-        # remain usable while users choose per-chart data sources.
-        if selected_cols:
-            all_selected_cols = sorted(selected_cols)
-        else:
-            all_selected_cols = sorted(
-                {col for cols in col_names.values() for col in cols}
-            )
-
-        # Rebuild fields_repr with filtered column options
-        data_source_names = list(col_names.keys())
-        charts_fields_repr = _build_charts_fields_repr(data_source_names, all_selected_cols)
-
-        # Clean invalid column values from form data
-        cleaned = PydanticChartEditor._clean_form_data_for_sources(form_data or {}, col_names)
-        try:
-            state = _EditorState.model_validate(cleaned)
-        except Exception:
-            try:
-                state = _EditorState.model_validate(form_data or {})
-            except Exception:
-                return no_update
-
-        form_id = PydanticChartEditor._FORM_ID
-        return [PydanticChartEditor._build_model_form(aio_id, form_id, state, charts_fields_repr)]
+        return no_update
 
     @staticmethod
     @callback(
@@ -1242,8 +1341,9 @@ class PydanticChartEditor(html.Div):
         if not form_data:
             return go.Figure(), ""
 
+        cleaned_form_data = clean_empty_strings(form_data)
         try:
-            state = _EditorState.model_validate(form_data)
+            state = _EditorState.model_validate(cleaned_form_data)
         except ValidationError as exc:
             err_fig = go.Figure()
             err_fig.update_layout(title=f"State validation error: {exc}")
@@ -1286,37 +1386,6 @@ class PydanticChartEditor(html.Div):
             debug = "\n".join(render_errors) + "\n\n" + debug
         return fig, debug
 
-    @staticmethod
-    @callback(
-        Output(ModelForm.ids.form(MATCH, _PYDF_FORM_ID), "data-update"),
-        Input(ids.chart(MATCH), "relayoutData"),
-        State(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
-        prevent_initial_call=True,
-    )
-    def sync_relayout_to_form(relayout_data, current_data):
-        """Sync in-graph edits (title, legend, bgcolor, …) back to the layout form section.
-
-        When the user edits a chart element directly (e.g. clicks the title, drags the
-        legend), Plotly fires ``relayoutData``.  This callback maps the changed keys to the
-        corresponding ``_LayoutConfig`` fields via ``_RELAYOUT_TO_LAYOUT`` and writes them
-        back into the ModelForm store so the form and the chart stay in step.
-        """
-        if not relayout_data:
-            return no_update
-
-        current = dict(current_data or {})
-        layout = dict(current.get("shared_layout") or {})
-        changed = False
-        for relayout_key, layout_field in _RELAYOUT_TO_LAYOUT.items():
-            if relayout_key in relayout_data:
-                layout[layout_field] = relayout_data[relayout_key]
-                changed = True
-
-        if changed:
-            current["shared_layout"] = layout
-            return current
-        return no_update
-
 
 def create_pydantic_chart_editor_app(
     data_sources: Dict[str, pd.DataFrame],
@@ -1345,3 +1414,44 @@ def create_pydantic_chart_editor_app(
 def get_chart_union_models() -> List[type[BaseModel]]:
     """Public helper exposing dynamically created per-chart models."""
     return _get_chart_union_models()
+
+clientside_callback(
+    """
+    function(relayoutData, _id) {
+        if (!relayoutData) { return window.dash_clientside.no_update; }
+        var patch = {};
+        var relayoutToLayout = {
+            "title.text": "title",
+            "showlegend": "showlegend",
+            "legend.x": "legend_x",
+            "legend.y": "legend_y",
+            "legend.orientation": "legend_orientation",
+            "legend.xanchor": "legend_xanchor",
+            "legend.yanchor": "legend_yanchor",
+            "paper_bgcolor": "paper_bgcolor",
+            "plot_bgcolor": "plot_bgcolor",
+            "width": "width",
+            "height": "height"
+        };
+        Object.keys(relayoutToLayout).forEach(function(relayoutKey) {
+            if (relayoutData.hasOwnProperty(relayoutKey)) {
+                var field = relayoutToLayout[relayoutKey];
+                var id = {
+                    component: "_pydf-value-field",
+                    aio_id: _id.aio_id,
+                    form_id: 'pydantic-chart-editor-form',
+                    field: field,
+                    parent: "shared_layout",
+                    meta: ""
+                };
+                dash_clientside.set_props(id, { value: relayoutData[relayoutKey] });
+            }
+        });
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output(PydanticChartEditor.ids.selected_sources_store(MATCH), "data", allow_duplicate=True),
+    Input(PydanticChartEditor.ids.chart(MATCH), "relayoutData"),
+    State(PydanticChartEditor.ids.chart(MATCH), "id"),
+    prevent_initial_call=True,
+)
