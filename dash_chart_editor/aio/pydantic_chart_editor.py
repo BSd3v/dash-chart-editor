@@ -12,7 +12,7 @@ import uuid
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import dash
-from dash import dcc, html, callback, Output, Input, State, MATCH, no_update, clientside_callback, set_props
+from dash import dcc, html, callback, Output, Input, State, MATCH, no_update, clientside_callback, set_props, ALL, ctx
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 
 from dash_pydantic_form.form_layouts.form_layout import FormLayout
+from dash_pydantic_form.ids import value_field
 from typing import Any, Literal
 from dash import html
 
@@ -1286,22 +1287,24 @@ class PydanticChartEditor(html.Div):
     @staticmethod
     @callback(
         Output(ids.selected_sources_store(MATCH), "data", allow_duplicate=True),
-        Input(ids.selected_sources_store(MATCH), "data"),
+        Input(value_field(MATCH, _PYDF_FORM_ID, 'data_source', ALL, ALL), "value"),
+        State(ids.data_sources(MATCH), "data"),
         State(ids.col_names_store(MATCH), "data"),
         State(ids.col_names_store(MATCH), "id"),
         State(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
         prevent_initial_call=True,
     )
-    def patch_column_dropdowns(selected_sources, col_names, id, form_data):
+    def patch_column_dropdowns(selected, selected_sources, col_names, id, form_data):
         if not col_names or not selected_sources or not form_data:
             return no_update
+        selected = ctx.triggered[0]["value"]
 
         # For each chart entry, update the relevant dropdowns
         for i, chart_entry in enumerate(form_data['charts']):
             src = chart_entry.get("data_source")
             if chart_entry.get("chart_type") is None or src is None:
                 continue  # Skip entries that aren't fully initialized yet
-            valid_cols = col_names.get(src, [])
+            valid_cols = list(selected_sources.get(src, [{}])[0].keys()) if src in selected_sources else []
             for field in chart_entry['chart_type'].get("common", {}) | chart_entry['chart_type'].get("advanced", {}) | chart_entry['chart_type'].get("special", {}):
                 if field in _ALL_SINGLE_COL_KWARGS | _ALL_MULTI_COL_KWARGS:  # Add other fields as needed
                     new_push = {"data": [{"value": c, "label": c} for c in valid_cols]}
