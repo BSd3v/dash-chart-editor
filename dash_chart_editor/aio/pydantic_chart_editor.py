@@ -13,7 +13,7 @@ import uuid
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import dash
-from dash import dcc, html, callback, Output, Input, State, MATCH, no_update, clientside_callback, set_props, ALL, ctx
+from dash import dcc, html, callback, Output, Input, State, MATCH, no_update, clientside_callback, set_props, ALL, ctx, Patch
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -126,6 +126,8 @@ class FlatLayoutFormLayout(FormLayout):
         return [
             field_inputs.get("name"),
             field_inputs.get('data_source'),
+            dmc.Group([field_inputs.get('xaxis'),
+            field_inputs.get('yaxis')]),
             *new_layout,
         ]
 
@@ -263,27 +265,23 @@ class _LayoutConfig(BaseModel):
 
     title: Optional[str] = Field(default=None, title="Title",
                                   description="The chart title displayed above the plot.")
-    height: Optional[int] = Field(default=None, title="Height (px)",
-                                   description="Height of the figure in pixels.", ge=100)
-    width: Optional[int] = Field(default=None, title="Width (px)",
-                                  description="Width of the figure in pixels.", ge=100)
     showlegend: Optional[bool] = Field(default=None, title="Show Legend",
                                         description="Whether to display the legend.")
     legend_x: Optional[float] = Field(default=None, title="Legend X Position (0–1)",
                                        description="Horizontal position of the legend (0=left, 1=right).",
-                                       ge=0.0, le=1.0, multiple_of=0.1)
+                                       ge=0.0, le=1.0, repr_kwargs={'visible': ('showlegend', '==', True)})
     legend_y: Optional[float] = Field(default=None, title="Legend Y Position (0–1)",
                                        description="Vertical position of the legend (0=bottom, 1=top).",
-                                       ge=0.0, le=1.0, multiple_of=0.1)
+                                       ge=0.0, le=1.0, repr_kwargs={'visible': ('showlegend', '==', True)})
     legend_orientation: Optional[Literal["v", "h"]] = Field(
         default=None, title="Legend Orientation",
-        description="'v' for vertical, 'h' for horizontal.")
+        description="'v' for vertical, 'h' for horizontal.", repr_kwargs={'visible': ('showlegend', '==', True)})
     legend_xanchor: Optional[Literal["auto", "left", "center", "right"]] = Field(
         default=None, title="Legend X Anchor",
-        description="Horizontal anchor point for the legend position.")
+        description="Horizontal anchor point for the legend position.", repr_kwargs={'visible': ('showlegend', '==', True)})
     legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(
         default=None, title="Legend Y Anchor",
-        description="Vertical anchor point for the legend position.")
+        description="Vertical anchor point for the legend position.", repr_kwargs={'visible': ('showlegend', '==', True)})
     barmode: Optional[Literal["stack", "group", "overlay"]] = Field(
         default=None, title="Bar Mode",
         description="Bar mode for bar charts.")
@@ -295,6 +293,28 @@ class _LayoutConfig(BaseModel):
         description="Violin mode for violin charts.")
     template: Optional[Literal[tuple(templates.keys())]] = Field(default=None, title="Template",
                                     description="Plotly template for chart styling.")
+    margin_l: Optional[int] = Field(default=None, title="Left Margin",
+                                description="Left margin in pixels.", ge=0)
+    margin_r: Optional[int] = Field(default=None, title="Right Margin",
+                                description="Right margin in pixels.", ge=0)
+    margin_t: Optional[int] = Field(default=None, title="Top Margin",
+                                description="Top margin in pixels.", ge=0)
+    margin_b: Optional[int] = Field(default=None, title="Bottom Margin",
+                                description="Bottom margin in pixels.", ge=0)
+    xaxis_title: Optional[str] = Field(default=None, title="X Axis Title")
+    yaxis_title: Optional[str] = Field(default=None, title="Y Axis Title")
+    xaxis_type: Optional[Literal["linear", "log"]] = Field(default="linear", title="X Axis Scale")
+    yaxis_type: Optional[Literal["linear", "log"]] = Field(default="linear", title="Y Axis Scale")
+    xaxis_range: Optional[List[float]] = Field(default=None, title="X Axis Range", description="e.g. [0, 10]")
+    yaxis_range: Optional[List[float]] = Field(default=None, title="Y Axis Range", description="e.g. [0, 100]")
+    yaxis2_show: Optional[bool] = Field(default=False, title="Enable Secondary Y Axis")
+    yaxis2_title: Optional[str] = Field(default=None, title="Secondary Y Axis Title", repr_kwargs={'visible': ('yaxis2_show', '==', True)})
+    yaxis2_type: Optional[Literal["linear", "log"]] = Field(default="linear", title="Secondary Y Axis Scale", repr_kwargs={'visible': ('yaxis2_show', '==', True)})
+    yaxis2_range: Optional[List[float]] = Field(default=None, title="Secondary Y Axis Range", repr_kwargs={'visible': ('yaxis2_show', '==', True)})
+    xaxis2_show: Optional[bool] = Field(default=False, title="Enable Secondary X Axis")
+    xaxis2_title: Optional[str] = Field(default=None, title="Secondary X Axis Title", repr_kwargs={'visible': ('xaxis2_show', '==', True)})
+    xaxis2_type: Optional[Literal["linear", "log"]] = Field(default="linear", title="Secondary X Axis Scale", repr_kwargs={'visible': ('xaxis2_show', '==', True)})
+    xaxis2_range: Optional[List[float]] = Field(default=None, title="Secondary X Axis Range", repr_kwargs={'visible': ('xaxis2_show', '==', True)})
 
 
 # ── Data transform models ─────────────────────────────────────────────────────
@@ -312,7 +332,8 @@ class _DataFilter(BaseModel):
     """A single column filter applied to the DataFrame before charting."""
 
     column: Optional[str] = Field(default=None, title="Column",
-                                   description="DataFrame column to filter on.")
+                                   description="DataFrame column to filter on.", repr_type="Select",
+                                   repr_kwargs={'option_labels': []})
     operator: Optional[Literal["==", "!=", ">", ">=", "<", "<="]] = Field(
         default="==", title="Operator",
         description="Comparison operator used for the filter.")
@@ -377,7 +398,7 @@ class _DataSort(BaseModel):
     """Sort order applied to the DataFrame before charting."""
 
     sort_by: Optional[str] = Field(default=None, title="Sort By Column",
-                                    description="Column to sort by.")
+                                    description="Column to sort by.", repr_type="Select")
     direction: Optional[_SORT_DIRECTIONS] = Field(  # type: ignore[assignment]
         default="asc", title="Direction",
         description="Sort direction: 'asc' (ascending) or 'desc' (descending).")
@@ -393,6 +414,15 @@ class _DataTransforms(BaseModel):
             "Row filters applied in sequence. "
             "Add one entry per column you want to filter on."
         ),
+        repr_type="Table",
+        repr_kwargs={
+            "column_defs_overrides": {
+                'column': {'flex': 2, 'cellEditor': {'function': 'PydfDropdown2'}},
+                'operator': {'flex': 1, 'cellEditor': {'function': 'PydfDropdown2'}},
+                'value': {'flex': 2},
+            },
+            "grid_kwargs": {'columnSize': None}
+        }
     )
     group_by: Optional[_DataGroupBy] = Field(
         default_factory=_DataGroupBy,
@@ -664,13 +694,15 @@ def _get_chart_union_type() -> Any:
     global _DYNAMIC_CHART_UNION
     if _DYNAMIC_CHART_UNION is None:
         models = tuple(_get_chart_union_models())
-        _DYNAMIC_CHART_UNION = Union[models]
+        _DYNAMIC_CHART_UNION = Optional[Union[models]]
     return _DYNAMIC_CHART_UNION
 
 _get_chart_union_type()
 class StableChartEntry(BaseModel):
     name: str = Field(default="Chart", title="Name")
     data_source: Optional[str] = Field(default=None, title="Data Source", repr_type="Select")
+    yaxis: Optional[str] = Field(default='y', title="Y Axis", description="Which y-axis to use (e.g., 'y', 'y2')", repr_kwargs={'n_cols':1})
+    xaxis: Optional[str] = Field(default='x', title="X Axis", description="Which x-axis to use (e.g., 'x', 'x2')", repr_kwargs={'n_cols':1})
     chart_type: _DYNAMIC_CHART_UNION = Field(..., title="Chart Type", discriminator="chart_type")
 
 def _get_editor_state_model() -> type[BaseModel]:
@@ -686,9 +718,6 @@ def _get_editor_state_model() -> type[BaseModel]:
     if _DYNAMIC_EDITOR_STATE_MODEL is None:
         from typing import Annotated
         from pydantic import Field as PydField
-
-        chart_union = _get_chart_union_type()
-        AnnotatedUnion = Annotated[chart_union, PydField(discriminator="chart_type")]
 
         _DYNAMIC_EDITOR_STATE_MODEL = create_model(
             "_DynamicEditorState",
@@ -795,36 +824,22 @@ def _build_charts_fields_repr(
         # Transforms: column fields for filters, group-by, sort.
         inner["transforms"] = {
             "fields_repr": {
-                "filters": {
-                    "fields_repr": {
-                        "column": {
-                            'repr_type': 'Select',
-                            'input_kwargs': {'data': col_labels},
-                        }
-                    }
-                },
                 "group_by": {
                     "fields_repr": {
-                        "group_by_columns": {
-                            'repr_type': 'MultiSelect',
-                            'input_kwargs': {'data': col_labels},
-                        },
-                        "agg_columns": {
-                            'repr_type': 'MultiSelect',
-                            'input_kwargs': {'data': col_labels},
-                        },
-                    }
+                        "group_by_columns": pydf_fields.MultiSelect(options_labels={col: col for col in all_columns},
+                                                                    input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels}),
+                        "agg_columns": pydf_fields.MultiSelect(options_labels={col: col for col in all_columns},
+                                                                input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels}),
+                    },
                 },
                 "sort": {
                     "fields_repr": {
-                        "sort_column": {
-                            'repr_type': 'Select',
-                            'input_kwargs': {'data': col_labels},
-                        },
+                        "sort_by": pydf_fields.Select(options_labels={col: col for col in all_columns},
+                                                     input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels}),
                     }
                 },
+                }
             }
-        }
 
     if inner:
         charts_repr['chart_type']["fields_repr"] = inner
@@ -968,9 +983,12 @@ class PydanticChartEditor(html.Div):
                                 "displayModeBar": True,
                             },
                         ),
-                        html.Pre(
-                            id=self.ids.debug(self.component_id),
-                            style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
+                        html.Div(
+                            html.Pre(
+                                id=self.ids.debug(self.component_id),
+                                style={"whiteSpace": "pre-wrap", "fontSize": "12px", "color": "#666"},
+                            ),
+                            style={'maxHeight': '300px', 'overflowY': 'auto', 'marginTop': '10px', 'padding': '10px', 'backgroundColor': '#f9f9f9', 'border': '1px solid #ddd', 'borderRadius': '4px'}
                         ),
                         dcc.Store(id=self.ids.data_sources(self.component_id), data=self._serialized_data_sources),
                         dcc.Store(id=self.ids.selected_sources_store(self.component_id), data=[]),
@@ -1168,6 +1186,9 @@ class PydanticChartEditor(html.Div):
         legend_update: dict = {}
         layout_update: dict = {}
         for key, val in layout_dict.items():
+            if key.startswith("xaxis") or key.startswith("yaxis"):
+                # xaxis_title, yaxis_type, etc. go in update_xaxes / update_yaxes calls, not layout.
+                continue
             if val in (None, "", [], {}, ()):
                 continue
             if key.startswith("legend_"):
@@ -1178,6 +1199,38 @@ class PydanticChartEditor(html.Div):
             layout_update["legend"] = legend_update
         if layout_update:
             fig.update_layout(**layout_update)
+        if layout_cfg.xaxis_title:
+            fig.update_xaxes(title_text=layout_cfg.xaxis_title)
+        if layout_cfg.yaxis_title:
+            fig.update_yaxes(title_text=layout_cfg.yaxis_title)
+        if layout_cfg.xaxis_type:
+            fig.update_xaxes(type=layout_cfg.xaxis_type)
+        if layout_cfg.yaxis_type:
+            fig.update_yaxes(type=layout_cfg.yaxis_type)
+        if layout_cfg.xaxis_range:
+            fig.update_xaxes(range=layout_cfg.xaxis_range)
+        if layout_cfg.yaxis_range:
+            fig.update_yaxes(range=layout_cfg.yaxis_range)
+        if layout_cfg.yaxis2_show:
+            fig.update_layout(
+                yaxis2=dict(
+                    title=layout_cfg.yaxis2_title,
+                    type=layout_cfg.yaxis2_type,
+                    range=layout_cfg.yaxis2_range,
+                    overlaying='y',
+                    side='right'
+                )
+            )
+        if layout_cfg.xaxis2_show:
+            fig.update_layout(
+                xaxis2=dict(
+                    title=layout_cfg.xaxis2_title,
+                    type=layout_cfg.xaxis2_type,
+                    range=layout_cfg.xaxis2_range,
+                    overlaying='x',
+                    side='top'
+                )
+            )
 
     @staticmethod
     def _clean_form_data_for_sources(form_data: dict, col_names: dict) -> dict:
@@ -1266,6 +1319,17 @@ class PydanticChartEditor(html.Div):
             ),
             fields_repr={"charts": {'fields_repr': charts_fields_repr,
                                     'form_layout': FlatLayoutFormLayout()},
+                        "shared_layout": {'form_layout':
+                                          AccordionFormLayout(
+                                              sections=[
+                                                  FormSection(name="General", fields=["title", "showlegend", "legend_position", "legend_orientation", "legend_xanchor", "legend_yanchor", "legend_x", "legend_y"],
+                                                              default_open=True),
+                                                  FormSection(name="Appearance", fields=["template", "boxmode", "barmode", "violinmode", "margin_l", "margin_r", "margin_t", "margin_b"]),
+                                                  FormSection(name="Axis", fields=["xaxis_title", "xaxis_type", "xaxis_range", "yaxis_title", "yaxis_type", "yaxis_range"]),
+                                                  FormSection(name="Secondary Axis", fields=["yaxis2_show", "yaxis2_title", "yaxis2_type", "yaxis2_range", "xaxis2_show", "xaxis2_title", "xaxis2_type", "xaxis2_range"]),
+                                              ],
+                                              render_kwargs={"multiple": False}
+                                          )}
                          },
         )
 
@@ -1314,7 +1378,7 @@ class PydanticChartEditor(html.Div):
 
         # For each chart entry, update the relevant dropdowns
         update = False
-        for i, chart_entry in enumerate(form_data['charts']):
+        for i, chart_entry in enumerate(form_data.get('charts', [])):
             if not f"charts:{i}" in _id['parent']:
                 continue  # This entry wasn't the one that triggered the callback, so skip it
             if _id['field'] == 'data_source':
@@ -1334,6 +1398,10 @@ class PydanticChartEditor(html.Div):
             
             chart_data = chart_entry['chart_type']
 
+            if _id['field'] == 'column':
+                set_props(_id, {'data': [{"value": col, "label": col} for col in valid_cols]})
+                return no_update  # No need to update other dropdowns if the changed field is a column dropdown itself
+
             for section in ("common", "advanced", "special"):
                 section_fields = [f for f in meta.get("kwargs", []) if classify_chart_param(f) == section]
                 for field in section_fields:
@@ -1341,7 +1409,7 @@ class PydanticChartEditor(html.Div):
                         current_value = chart_data.get(section, {}).get(field)
                         id_dict = {
                             "component": "_pydf-value-field",
-                            "aio_id": id['aio_id'],
+                            "aio_id": _id['aio_id'],
                             "form_id": _PYDF_FORM_ID,
                             "field": field,
                             "parent": f"charts:{i}:chart_type:{section}",
@@ -1355,6 +1423,67 @@ class PydanticChartEditor(html.Div):
                             new_push["value"] = [c for c in current_value if c in valid_cols] or None
                         set_props(id_dict, new_push)
                         update = True
+            
+            # Handle transform fields (filters, group_by, sort)
+            # # Filters
+            id_dict = {
+                "aio_id": "demo",
+                "component": "_pydf-editable-table-table",
+                "field": "filters",
+                "form_id": "pydantic-chart-editor-form",
+                "meta": "",
+                "parent": f"charts:{i}:chart_type:transforms"
+            }
+            # Suppose valid_cols is your list of valid columns
+            columns_config = Patch()
+            columns_config[1]['cellEditorParams']['options'] = [{"value": c, "label": c} for c in valid_cols]
+            columns_config[1]['cellEditorParams']['searchable'] = False
+            set_props(id_dict, {"columnDefs": columns_config, 'resetColumnState': True, 'columnSize': None})
+            update = True
+            transforms = chart_data.get("transforms", {})
+            if isinstance(transforms, dict):
+                
+                # Group by
+                group_by = transforms.get("group_by", {})
+                if isinstance(group_by, dict):
+                    gb_cols = group_by.get("group_by_columns", [])
+                    id_dict = {
+                        "component": "_pydf-value-field",
+                        "aio_id": _id['aio_id'],
+                        "form_id": _PYDF_FORM_ID,
+                        "field": "group_by_columns",
+                        "parent": f"charts:{i}:chart_type:transforms:group_by",
+                        "meta": "",
+                    }
+                    new_val = [c for c in gb_cols if c in valid_cols]
+                    set_props(id_dict, {"value": new_val or None, 'data': [{"value": c, "label": c} for c in valid_cols]})
+                    update = True
+                    agg_cols = group_by.get("agg_columns", [])
+                    id_dict = {
+                        "component": "_pydf-value-field",
+                        "aio_id": _id['aio_id'],
+                        "form_id": _PYDF_FORM_ID,
+                        "field": "agg_columns",
+                        "parent": f"charts:{i}:chart_type:transforms:group_by",
+                        "meta": "",
+                    }
+                    new_val = [c for c in agg_cols if c in valid_cols]
+                    set_props(id_dict, {"value": new_val or None, 'data': [{"value": c, "label": c} for c in valid_cols]})
+                    update = True
+                # Sort
+                sort = transforms.get("sort", {})
+                if isinstance(sort, dict):
+                    sort_col = sort.get("sort_by")
+                    id_dict = {
+                        "component": "_pydf-value-field",
+                        "aio_id": _id['aio_id'],
+                        "form_id": _PYDF_FORM_ID,
+                        "field": "sort_by",
+                        "parent": f"charts:{i}:chart_type:transforms:sort",
+                        "meta": "",
+                    }
+                    set_props(id_dict, {"value": None if sort_col not in valid_cols else sort_col, 'data': [{"value": c, "label": c} for c in valid_cols]})
+                    update = True
         if update:
             time.sleep(0.3)  # Delay to allow dropdown options to update before any dependent callbacks fire
         return no_update
@@ -1363,6 +1492,7 @@ class PydanticChartEditor(html.Div):
     @callback(
         Output(ids.chart(MATCH), "figure"),
         Output(ids.debug(MATCH), "children"),
+        Output(ModelForm.ids.errors(MATCH, _PYDF_FORM_ID), "data"),
         Input(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
         State(ids.data_sources(MATCH), "data"),
         State(ids.chart(MATCH), "relayoutData"),
@@ -1375,15 +1505,14 @@ class PydanticChartEditor(html.Div):
         applies the shared layout and any in-graph user edits from relayoutData.
         """
         if not form_data:
-            return go.Figure(), ""
+            return no_update, "", {}
 
         cleaned_form_data = clean_empty_strings(form_data)
         try:
             state = _EditorState.model_validate(cleaned_form_data)
         except ValidationError as exc:
-            err_fig = go.Figure()
-            err_fig.update_layout(title=f"State validation error: {exc}")
-            return err_fig, str(exc)
+            errors = {":".join([str(x) for x in error["loc"]]): error["msg"] for error in exc.errors()}
+            return no_update, str(exc), errors
 
         all_sources = serialized_data_sources or {}
         fig = go.Figure()
@@ -1403,14 +1532,14 @@ class PydanticChartEditor(html.Div):
             for trace in trace_fig.data:
                 label = PydanticChartEditor._entry_display_name(chart_entry)
                 chart_type = getattr(chart_entry, "chart_type", None)
+                trace.update(yaxis=chart_entry.yaxis or 'y', xaxis=chart_entry.xaxis or 'x')
                 # trace.name = label or chart_type or "Chart"
                 fig.add_trace(trace)
-            
             has_data = True
 
         if not has_data:
             debug = "\n".join(render_errors) if render_errors else "Select chart type, data source, and at least one column to render."
-            return go.Figure(), debug
+            return go.Figure(), debug, {}
 
         PydanticChartEditor._apply_shared_layout(fig, state.shared_layout)
 
@@ -1421,7 +1550,7 @@ class PydanticChartEditor(html.Div):
         debug = json.dumps(form_data, indent=2, default=str)
         if render_errors:
             debug = "\n".join(render_errors) + "\n\n" + debug
-        return fig, debug
+        return fig, debug, {}
 
 
 def create_pydantic_chart_editor_app(
