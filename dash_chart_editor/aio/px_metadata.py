@@ -68,8 +68,7 @@ COMMON_PARAM_NAMES: frozenset[str] = frozenset({
     "color", "symbol", "size", "text",
     "names", "values", "parents", "ids",
     "lat", "lon", "locations",
-    "hover_name", "hover_data", "custom_data",
-    "opacity",
+    "opacity", "path"
 })
 
 # Special: chart-type-specific behaviours (trendlines, marginals, display modes, etc.)
@@ -207,7 +206,8 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
         param_defaults: dict[str, Any] = {}
 
         for param in sig.parameters.values():
-            if param.name in ["data_frame", 'title', 'template']:
+            if param.name in ["data_frame", 'title', 'template', 'boxmode', 'barmode', 'violinmode', 'log_x', 'log_y',
+                              'width', 'height', 'range_x', 'range_y'] or param.name.startswith("facet_") or param.name.startswith("animation_"):
                 continue
             if param.kind not in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY):
                 continue

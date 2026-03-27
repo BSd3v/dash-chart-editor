@@ -7,6 +7,7 @@ All charts share a single dcc.Graph and a common layout configuration.
 from __future__ import annotations
 
 import json
+import time
 import re
 import uuid
 from typing import Any, Dict, List, Literal, Optional, Set, Union
@@ -255,6 +256,7 @@ def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
         except (AttributeError, TypeError):
             pass
 
+from plotly.io import templates
 
 class _LayoutConfig(BaseModel):
     """Shared layout options applied across all charts in the same figure."""
@@ -282,7 +284,16 @@ class _LayoutConfig(BaseModel):
     legend_yanchor: Optional[Literal["auto", "top", "middle", "bottom"]] = Field(
         default=None, title="Legend Y Anchor",
         description="Vertical anchor point for the legend position.")
-    template: Optional[str] = Field(default=None, title="Template",
+    barmode: Optional[Literal["stack", "group", "overlay"]] = Field(
+        default=None, title="Bar Mode",
+        description="Bar mode for bar charts.")
+    boxmode: Optional[Literal["group", "overlay"]] = Field(
+        default=None, title="Box Mode",
+        description="Box mode for box charts.")
+    violinmode: Optional[Literal["group", "overlay"]] = Field(
+        default=None, title="Violin Mode",
+        description="Violin mode for violin charts.")
+    template: Optional[Literal[tuple(templates.keys())]] = Field(default=None, title="Template",
                                     description="Plotly template for chart styling.")
 
 
@@ -1288,42 +1299,64 @@ class PydanticChartEditor(html.Div):
     @callback(
         Output(ids.selected_sources_store(MATCH), "data", allow_duplicate=True),
         Input(value_field(MATCH, _PYDF_FORM_ID, 'data_source', ALL, ALL), "value"),
+        Input(value_field(MATCH, _PYDF_FORM_ID, 'chart_type', ALL, ALL), "value"),
         State(ids.data_sources(MATCH), "data"),
         State(ids.col_names_store(MATCH), "data"),
         State(ids.col_names_store(MATCH), "id"),
         State(ModelForm.ids.main(MATCH, _PYDF_FORM_ID), "data"),
         prevent_initial_call=True,
     )
-    def patch_column_dropdowns(selected, selected_sources, col_names, id, form_data):
+    def patch_column_dropdowns(_, __, selected_sources, col_names, id, form_data):
         if not col_names or not selected_sources or not form_data:
             return no_update
-        selected = ctx.triggered[0]["value"]
+        _id = ctx.triggered_id
+        _new_value = ctx.triggered[0]["value"]
 
         # For each chart entry, update the relevant dropdowns
+        update = False
         for i, chart_entry in enumerate(form_data['charts']):
-            src = chart_entry.get("data_source")
-            if chart_entry.get("chart_type") is None or src is None:
-                continue  # Skip entries that aren't fully initialized yet
+            if not f"charts:{i}" in _id['parent']:
+                continue  # This entry wasn't the one that triggered the callback, so skip it
+            if _id['field'] == 'data_source':
+                src = _new_value
+            else:
+                src = chart_entry.get("data_source")
+            if _id['field'] == 'chart_type':
+                chart_type = _new_value
+            else:
+                chart_type = chart_entry.get("chart_type", {}).get("chart_type")
+            if not chart_type:
+                continue
+            meta = PX_CHART_METADATA.get(chart_type)
+            if not meta:
+                continue
             valid_cols = list(selected_sources.get(src, [{}])[0].keys()) if src in selected_sources else []
-            for field in chart_entry['chart_type'].get("common", {}) | chart_entry['chart_type'].get("advanced", {}) | chart_entry['chart_type'].get("special", {}):
-                if field in _ALL_SINGLE_COL_KWARGS | _ALL_MULTI_COL_KWARGS:  # Add other fields as needed
-                    new_push = {"data": [{"value": c, "label": c} for c in valid_cols]}
-                    id_dict = {
-                        "component": "_pydf-value-field",
-                        "aio_id": id['aio_id'],
-                        "form_id": _PYDF_FORM_ID,
-                        "field": field,
-                        "parent": f"charts:{i}:chart_type:common",
-                        "meta": "",
-                    }
-                    # Optionally clear value if it's no longer valid
-                    current_value = form_data.get("charts", [])[i].get("chart_type", {}).get("common", {}).get(field)
-                    if _ALL_SINGLE_COL_KWARGS.__contains__(field) and isinstance(current_value, str) and current_value not in valid_cols:
-                        new_push["value"] = None
-                    elif _ALL_MULTI_COL_KWARGS.__contains__(field) and isinstance(current_value, list):
-                        new_push["value"] = [c for c in current_value if c in valid_cols] or None
-                    set_props(id_dict, new_push)
+            
+            chart_data = chart_entry['chart_type']
 
+            for section in ("common", "advanced", "special"):
+                section_fields = [f for f in meta.get("kwargs", []) if classify_chart_param(f) == section]
+                for field in section_fields:
+                    if field in _ALL_SINGLE_COL_KWARGS | _ALL_MULTI_COL_KWARGS:  # Add other fields as needed
+                        current_value = chart_data.get(section, {}).get(field)
+                        id_dict = {
+                            "component": "_pydf-value-field",
+                            "aio_id": id['aio_id'],
+                            "form_id": _PYDF_FORM_ID,
+                            "field": field,
+                            "parent": f"charts:{i}:chart_type:{section}",
+                            "meta": "",
+                        }
+                        new_push = {"data": [{"value": c, "label": c} for c in valid_cols]}
+                        # Optionally clear value if it's no longer valid
+                        if _ALL_SINGLE_COL_KWARGS.__contains__(field) and current_value not in valid_cols:
+                            new_push["value"] = None
+                        elif _ALL_MULTI_COL_KWARGS.__contains__(field) and isinstance(current_value, list):
+                            new_push["value"] = [c for c in current_value if c in valid_cols] or None
+                        set_props(id_dict, new_push)
+                        update = True
+        if update:
+            time.sleep(0.3)  # Delay to allow dropdown options to update before any dependent callbacks fire
         return no_update
 
     @staticmethod
@@ -1370,8 +1403,9 @@ class PydanticChartEditor(html.Div):
             for trace in trace_fig.data:
                 label = PydanticChartEditor._entry_display_name(chart_entry)
                 chart_type = getattr(chart_entry, "chart_type", None)
-                trace.name = label or chart_type or "Chart"
+                # trace.name = label or chart_type or "Chart"
                 fig.add_trace(trace)
+            
             has_data = True
 
         if not has_data:
