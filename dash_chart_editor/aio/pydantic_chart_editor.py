@@ -340,23 +340,75 @@ class _DataFilter(BaseModel):
     value: Optional[str] = Field(default=None, title="Value",
                                   description="Value to compare against (strings are auto-cast).")
 
+class _DataAggregation(BaseModel):
+    """A single aggregation (column + function) applied to the DataFrame after grouping."""
+    column: Optional[str] = Field(default=None, title="Aggregate Column",
+                                   description="DataFrame column to aggregate. Leave empty to count rows.",
+                                   repr_type="Select", repr_kwargs={'option_labels': []})
+    agg_func: Optional[_AGG_FUNCTIONS] = Field(  # type: ignore[assignment]
+        default="sum", title="Aggregation Function",
+        description="Aggregation function applied to the selected column.")
 
 class _DataGroupBy(BaseModel):
     """Group-by + aggregation applied to the DataFrame before charting."""
-
     group_by_columns: List[str] = Field(
         default_factory=list,
         title="Group By Columns",
         description="One or more columns to group by.",
     )
-    agg_columns: List[str] = Field(
+    aggregations: List[_DataAggregation] = Field(
         default_factory=list,
-        title="Aggregate Columns",
-        description="One or more columns to aggregate. Leave empty to count rows per group.",
+        title="Aggregations",
+        description="List of aggregations, each with a column and aggregation function.",
+        repr_type="Table",
+        repr_kwargs={
+            "column_defs_overrides": {
+                'column': {'flex': 2, 'cellEditor': {'function': 'AllComponentEditors'},
+                           'cellEditorParams': {'component': {
+                               'type': 'Select',
+                               'namespace': 'dash_mantine_components',
+                               'props': {'searchable': True, 'data': []}
+                           }},
+                           'cellEditorPopup': True,
+                           'cellDataType': 'text',
+                           'cellRenderer': '',},
+                'agg_func': {'flex': 1, 'cellEditor': {'function': 'AllComponentEditors'},
+                             'cellEditorParams': {'component': {
+                               'type': 'Select',
+                               'namespace': 'dash_mantine_components',
+                               'props': {'data': [
+                                      {"value": "sum", "label": "sum"},
+                                      {"value": "mean", "label": "mean"},
+                                      {"value": "median", "label": "median"},
+                                      {"value": "min", "label": "min"},
+                                      {"value": "max", "label": "max"},
+                                      {"value": "count", "label": "count"},
+                                      {"value": "std", "label": "std"},
+                                      {"value": "var", "label": "var"},
+                                      {"value": "first", "label": "first"},
+                                      {"value": "last", "label": "last"},
+                               ]}
+                           }},
+                           'cellEditorPopup': True,
+                           'cellDataType': 'text'},
+            },
+            "grid_kwargs": {'columnSize': None},
+        }
     )
-    agg_function: Optional[_AGG_FUNCTIONS] = Field(  # type: ignore[assignment]
-        default="sum", title="Aggregation Function",
-        description="Aggregation applied to the selected column.")
+
+    # group_by_columns: List[str] = Field(
+    #     default_factory=list,
+    #     title="Group By Columns",
+    #     description="One or more columns to group by.",
+    # )
+    # agg_columns: List[str] = Field(
+    #     default_factory=list,
+    #     title="Aggregate Columns",
+    #     description="One or more columns to aggregate. Leave empty to count rows per group.",
+    # )
+    # agg_function: Optional[_AGG_FUNCTIONS] = Field(  # type: ignore[assignment]
+    #     default="sum", title="Aggregation Function",
+    #     description="Aggregation applied to the selected column.")
 
     @staticmethod
     def _normalize_to_str_list(v: Any) -> List[str]:
@@ -513,13 +565,9 @@ def _apply_transforms(df: pd.DataFrame, transforms: Optional[_DataTransforms]) -
     gb = transforms.group_by
     group_cols = [col for col in (gb.group_by_columns if gb else []) if col in df.columns]
     if gb and group_cols:
-        agg_fn = gb.agg_function or "sum"
-        agg_cols = [col for col in gb.agg_columns if col in df.columns]
-        if agg_cols:
-            df = df.groupby(group_cols, as_index=False)[agg_cols].agg(agg_fn)
-        else:
-            # Count rows per group.
-            df = df.groupby(group_cols, as_index=False).size().rename(columns={"size": "count"})
+        agg_dict = {row.column: row.agg_func for row in gb.aggregations if row.column in df.columns and row.agg_func}
+        if agg_dict:
+            df = df.groupby(group_cols).agg(agg_dict).reset_index()
 
     # 3. Sort.
     s = transforms.sort
@@ -852,6 +900,7 @@ def _build_charts_fields_repr(
             if section_repr:
                 inner[section] = {"fields_repr": section_repr}
 
+
         # Transforms: column fields for filters, group-by, sort.
         inner["transforms"] = {
             "fields_repr": {
@@ -859,10 +908,45 @@ def _build_charts_fields_repr(
                     "fields_repr": {
                         "group_by_columns": pydf_fields.MultiSelect(options_labels={col: col for col in all_columns},
                                                                     input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels}),
-                        "agg_columns": pydf_fields.MultiSelect(options_labels={col: col for col in all_columns},
-                                                                input_kwargs={'searchable': True, 'clearable': True, 'data': col_labels}),
+                        "aggregations": {
+                            "repr_type": "Table",
+                            "repr_kwargs": {
+                                "column_defs_overrides": {
+                                    'column': {'flex': 2, 'cellEditor': {'function': 'AllComponentEditors'},
+                                                'cellEditorParams': {'component': {
+                                                    'type': 'Select',
+                                                    'namespace': 'dash_mantine_components',
+                                                    'props': {'searchable': True, 'data': [{"value": c, "label": c} for c in all_columns]}
+                                                }},
+                                                'cellEditorPopup': True,
+                                                'cellDataType': 'text',
+                                                'cellRenderer': '',},
+                                    'agg_func': {'flex': 1, 'cellEditor': {'function': 'AllComponentEditors'},
+                                                    'cellEditorParams': {'component': {
+                                                    'type': 'Select',
+                                                    'namespace': 'dash_mantine_components',
+                                                    'props': {'data': [
+                                                            {"value": "sum", "label": "sum"},
+                                                            {"value": "mean", "label": "mean"},
+                                                            {"value": "median", "label": "median"},
+                                                            {"value": "min", "label": "min"},
+                                                            {"value": "max", "label": "max"},
+                                                            {"value": "count", "label": "count"},
+                                                            {"value": "std", "label": "std"},
+                                                            {"value": "var", "label": "var"},
+                                                            {"value": "first", "label": "first"},
+                                                            {"value": "last", "label": "last"},
+                                                    ]}
+                                                }},
+                                                'cellEditorPopup': True,
+                                                'cellDataType': 'text'},
+                                },
+                                "grid_kwargs": {'columnSize': None},
+                            }
+                        },
                     },
                 },
+                
                 "sort": {
                     "fields_repr": {
                         "sort_by": pydf_fields.Select(options_labels={col: col for col in all_columns},
@@ -1405,6 +1489,7 @@ class PydanticChartEditor(html.Div):
         prevent_initial_call=True,
     )
     def patch_column_dropdowns(_, __, selected_sources, col_names, id, form_data):
+        update = True
         if not col_names or not selected_sources or not form_data:
             return no_update
         _id = ctx.triggered_id
@@ -1473,13 +1558,26 @@ class PydanticChartEditor(html.Div):
             columns_config[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
             set_props(id_dict, {"columnDefs": columns_config, 'resetColumnState': True, 'columnSize': None})
             update = True
+
+            # Aggregations Table columnDefs update
+            agg_id_dict = {
+                "component": "_pydf-editable-table-table",
+                "aio_id": _id['aio_id'],
+                "form_id": _PYDF_FORM_ID,
+                "field": "aggregations",
+                "parent": f"charts:{i}:chart_type:transforms:group_by",
+                "meta": "",
+            }
+            agg_columns_config = Patch()
+            agg_columns_config[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
+            set_props(agg_id_dict, {"columnDefs": agg_columns_config, 'resetColumnState': True, 'columnSize': None})
+
             transforms = chart_data.get("transforms", {})
             if isinstance(transforms, dict):
-                
-                # Group by
+                # Group By
                 group_by = transforms.get("group_by", {})
                 if isinstance(group_by, dict):
-                    gb_cols = group_by.get("group_by_columns", [])
+                    group_by_col = group_by.get("group_by_columns", [None])  # Check the first group_by column for validity
                     id_dict = {
                         "component": "_pydf-value-field",
                         "aio_id": _id['aio_id'],
@@ -1488,20 +1586,7 @@ class PydanticChartEditor(html.Div):
                         "parent": f"charts:{i}:chart_type:transforms:group_by",
                         "meta": "",
                     }
-                    new_val = [c for c in gb_cols if c in valid_cols]
-                    set_props(id_dict, {"value": new_val or None, 'data': [{"value": c, "label": c} for c in valid_cols]})
-                    update = True
-                    agg_cols = group_by.get("agg_columns", [])
-                    id_dict = {
-                        "component": "_pydf-value-field",
-                        "aio_id": _id['aio_id'],
-                        "form_id": _PYDF_FORM_ID,
-                        "field": "agg_columns",
-                        "parent": f"charts:{i}:chart_type:transforms:group_by",
-                        "meta": "",
-                    }
-                    new_val = [c for c in agg_cols if c in valid_cols]
-                    set_props(id_dict, {"value": new_val or None, 'data': [{"value": c, "label": c} for c in valid_cols]})
+                    set_props(id_dict, {"value": [None if col not in valid_cols else col for col in group_by_col], 'data': [{"value": c, "label": c} for c in valid_cols]})
                     update = True
                 # Sort
                 sort = transforms.get("sort", {})
