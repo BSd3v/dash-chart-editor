@@ -219,8 +219,8 @@ class MultiChartEditorAIO(html.Div):
         if not ctx.triggered:
             return dash.no_update, dash.no_update, dash.no_update
         
-        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        trigger_component = eval(trigger_id)['subcomponent']
+        triggered_id = ctx.triggered_id
+        trigger_component = triggered_id.get("subcomponent") if isinstance(triggered_id, dict) else None
         
         # Parse current charts data
         try:
