@@ -1489,9 +1489,17 @@ class PydanticChartEditor(html.Div):
             if not valid_cols:
                 new_charts.append(chart)
                 continue
-            # Clean section sub-model column fields
+            # Clean section sub-model column fields.
+            # Sections may be stored at the top-level of the chart dict *or* nested under
+            # chart['chart_type'] (when the payload came from a StableChartEntry model).
+            # We support both shapes and write cleaned data back to the same location.
+            chart_type_dict = chart.get("chart_type")
+            _nested = isinstance(chart_type_dict, dict)
+            # Copy once before the loop so nested writes are collected into a single dict.
+            if _nested:
+                chart_type_dict = dict(chart_type_dict)
             for section_name in ("common", "advanced", "special"):
-                section = chart['chart_type'].get(section_name)
+                section = chart_type_dict.get(section_name) if _nested else chart.get(section_name)
                 if not isinstance(section, dict):
                     continue
                 cleaned: dict = {}
@@ -1499,7 +1507,7 @@ class PydanticChartEditor(html.Div):
                     if k in _ALL_SINGLE_COL_KWARGS:
                         if isinstance(v, str) and v in valid_cols:
                             cleaned[k] = v
-                        # else: drop invalid column
+                        # else: drop invalid column value silently
                     elif k in _ALL_MULTI_COL_KWARGS:
                         if isinstance(v, list):
                             kept = [c for c in v if c in valid_cols]
@@ -1507,7 +1515,13 @@ class PydanticChartEditor(html.Div):
                                 cleaned[k] = kept
                     else:
                         cleaned[k] = v
-                chart[section_name] = cleaned
+                # Write back to the same location we read from.
+                if _nested:
+                    chart_type_dict[section_name] = cleaned
+                else:
+                    chart[section_name] = cleaned
+            if _nested:
+                chart["chart_type"] = chart_type_dict
             # Clean transform column fields
             transforms = chart.get("transforms")
             if isinstance(transforms, dict):
@@ -1521,17 +1535,26 @@ class PydanticChartEditor(html.Div):
                 gb = transforms.get("group_by")
                 if isinstance(gb, dict):
                     gb = dict(gb)
+                    # Current schema: group_by_columns list
                     if "group_by_columns" in gb:
                         gb["group_by_columns"] = [c for c in (gb["group_by_columns"] or []) if c in valid_cols]
+                    # Current schema: aggregations list of {column, agg_func} dicts
+                    if "aggregations" in gb and isinstance(gb["aggregations"], list):
+                        gb["aggregations"] = [
+                            agg for agg in gb["aggregations"]
+                            if not isinstance(agg, dict) or agg.get("column") in valid_cols
+                        ]
+                    # Legacy schema fallback: agg_columns list
                     if "agg_columns" in gb:
-                        gb["agg_columns"] = [c for c in (gb["agg_columns"] or []) if c in valid_cols]
+                        gb["agg_columns"] = [c for c in (gb.get("agg_columns") or []) if c in valid_cols]
                     transforms["group_by"] = gb
                 sort = transforms.get("sort")
                 if isinstance(sort, dict):
                     sort = dict(sort)
-                    if sort.get("sort_column") not in valid_cols:
-                        # Set to None (not deleted) so Pydantic validation clears the Optional field.
-                        sort["sort_column"] = None
+                    # Current schema uses sort_by; legacy payloads may use sort_column.
+                    for sort_key in ("sort_by", "sort_column"):
+                        if sort_key in sort and sort.get(sort_key) not in valid_cols:
+                            sort[sort_key] = None
                     transforms["sort"] = sort
                 chart["transforms"] = transforms
             new_charts.append(chart)
