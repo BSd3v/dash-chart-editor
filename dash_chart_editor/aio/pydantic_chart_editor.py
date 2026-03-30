@@ -24,9 +24,6 @@ from pydantic import ValidationError
 
 from dash_pydantic_form.form_layouts.form_layout import FormLayout
 from dash_pydantic_form.ids import value_field
-from typing import Any, Literal
-from dash import html
-
 from dash_pydantic_form import ModelForm, AccordionFormLayout, FormSection, TabsFormLayout
 from dash_pydantic_form import fields as pydf_fields
 
