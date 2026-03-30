@@ -46,6 +46,83 @@ def clean_empty_strings(d):
 
 _PYDF_FORM_ID = "pydantic-chart-editor-form"
 
+# Logical metadata for every known Plotly Express chart type:
+# order is used for the chart-type selector dropdown; group/description are
+# surfaced via the custom renderOption function in assets/chart_type_select.js.
+_CHART_TYPE_META: dict = {
+    # ── Basic ──────────────────────────────────────────────────────────────────
+    "scatter":             {"label": "Scatter",              "description": "X vs Y scatter plot",               "group": "Basic"},
+    "line":                {"label": "Line",                 "description": "Connected line through points",      "group": "Basic"},
+    "bar":                 {"label": "Bar",                  "description": "Bar chart for categorical data",     "group": "Basic"},
+    "area":                {"label": "Area",                 "description": "Filled area under a line",          "group": "Basic"},
+    "funnel":              {"label": "Funnel",               "description": "Funnel / waterfall of values",      "group": "Basic"},
+    # ── Distribution ──────────────────────────────────────────────────────────
+    "histogram":           {"label": "Histogram",            "description": "Frequency distribution of values",  "group": "Distribution"},
+    "box":                 {"label": "Box",                  "description": "Box and whisker plot",              "group": "Distribution"},
+    "violin":              {"label": "Violin",               "description": "Kernel density violin plot",        "group": "Distribution"},
+    "strip":               {"label": "Strip",                "description": "Strip / jitter plot of points",     "group": "Distribution"},
+    "ecdf":                {"label": "ECDF",                 "description": "Empirical cumulative distribution", "group": "Distribution"},
+    # ── Part-of-Whole ─────────────────────────────────────────────────────────
+    "pie":                 {"label": "Pie",                  "description": "Parts of a whole as wedges",        "group": "Part-of-Whole"},
+    # ── Hierarchical ─────────────────────────────────────────────────────────
+    "sunburst":            {"label": "Sunburst",             "description": "Hierarchical radial chart",         "group": "Hierarchical"},
+    "treemap":             {"label": "Treemap",              "description": "Hierarchical rectangular tiles",    "group": "Hierarchical"},
+    "icicle":              {"label": "Icicle",               "description": "Hierarchical icicle chart",         "group": "Hierarchical"},
+    # ── 2D Distribution ───────────────────────────────────────────────────────
+    "density_heatmap":     {"label": "Density Heatmap",      "description": "2D binned density heatmap",         "group": "2D Distribution"},
+    "density_contour":     {"label": "Density Contour",      "description": "2D density contour lines",          "group": "2D Distribution"},
+    # ── Multidimensional ─────────────────────────────────────────────────────
+    "parallel_coordinates":{"label": "Parallel Coordinates", "description": "Multivariate line plot",           "group": "Multidimensional"},
+    "parallel_categories": {"label": "Parallel Categories",  "description": "Categorical flow / alluvial",       "group": "Multidimensional"},
+    # ── Polar ─────────────────────────────────────────────────────────────────
+    "scatter_polar":       {"label": "Polar Scatter",        "description": "Scatter on polar / radial axes",   "group": "Polar"},
+    "line_polar":          {"label": "Polar Line",           "description": "Line on polar / radial axes",      "group": "Polar"},
+    "bar_polar":           {"label": "Polar Bar",            "description": "Wind-rose / polar bar chart",      "group": "Polar"},
+    # ── Ternary ───────────────────────────────────────────────────────────────
+    "scatter_ternary":     {"label": "Ternary Scatter",      "description": "Scatter on ternary axes",          "group": "Ternary"},
+    "line_ternary":        {"label": "Ternary Line",         "description": "Line on ternary axes",             "group": "Ternary"},
+    # ── 3D ────────────────────────────────────────────────────────────────────
+    "scatter_3d":          {"label": "3D Scatter",           "description": "3D scatter plot",                  "group": "3D"},
+    "line_3d":             {"label": "3D Line",              "description": "3D line chart",                    "group": "3D"},
+    # ── Geographic ────────────────────────────────────────────────────────────
+    "scatter_geo":         {"label": "Geo Scatter",          "description": "Scatter on a geographic map",      "group": "Geo"},
+    "line_geo":            {"label": "Geo Line",             "description": "Line on a geographic map",         "group": "Geo"},
+    "choropleth":          {"label": "Choropleth",           "description": "Filled region choropleth map",     "group": "Geo"},
+    "scatter_mapbox":      {"label": "Mapbox Scatter",       "description": "Scatter on a Mapbox tile map",     "group": "Geo"},
+    "line_mapbox":         {"label": "Mapbox Line",          "description": "Line on a Mapbox tile map",        "group": "Geo"},
+    "choropleth_mapbox":   {"label": "Mapbox Choropleth",    "description": "Choropleth on a Mapbox map",       "group": "Geo"},
+    "density_mapbox":      {"label": "Mapbox Density",       "description": "Density heatmap on a Mapbox map",  "group": "Geo"},
+}
+
+def _chart_type_sort_key(chart_type: str) -> tuple:
+    """Sort key that puts known chart types in logical display order, then alphabetical."""
+    known_keys = list(_CHART_TYPE_META.keys())
+    try:
+        return (known_keys.index(chart_type), chart_type)
+    except ValueError:
+        return (len(known_keys), chart_type)
+
+
+def _build_chart_type_options(available: list | None = None) -> list:
+    """Return ordered dmc.Select option dicts for the chart type selector.
+
+    Each option carries ``value``, ``label``, and ``description`` so the
+    clientside ``renderOption`` function can display a rich two-line entry.
+    ``available`` restricts the list to chart types present in PX_CHART_METADATA.
+    """
+    all_types = sorted(
+        (available if available is not None else list(PX_CHART_METADATA.keys())),
+        key=_chart_type_sort_key,
+    )
+    options = []
+    for ct in all_types:
+        meta = _CHART_TYPE_META.get(ct, {})
+        label = meta.get("label") or ct.replace("_", " ").title()
+        description = meta.get("description", "")
+        options.append({"value": ct, "label": label, "description": description})
+    return options
+
+
 # All chart type names available from Plotly Express metadata.
 _CHART_TYPES: tuple = tuple(sorted(PX_CHART_METADATA.keys()))
 
@@ -783,7 +860,7 @@ def _get_chart_union_models() -> List[type[BaseModel]]:
     if _DYNAMIC_CHART_MODELS is None:
         _DYNAMIC_CHART_MODELS = [
                 _build_dynamic_chart_options_model(chart_type, PX_CHART_METADATA[chart_type])
-            for chart_type in sorted(PX_CHART_METADATA.keys(), key=lambda x: x.title())
+            for chart_type in sorted(PX_CHART_METADATA.keys(), key=_chart_type_sort_key)
         ]
     if not _DYNAMIC_CHART_MODELS:
         raise RuntimeError("PX_CHART_METADATA is empty; cannot build chart union models.")
@@ -888,7 +965,20 @@ def _build_charts_fields_repr(
     ``"fields_repr"`` wrapper; that wrapping is applied by the higher-level
     form-building helpers when constructing the complete ``fields_repr`` config.
     """
-    charts_repr: dict = {'chart_type': {"form_layout": FlatSectionFormLayout()}}
+    # Build ordered, labeled, described options for the chart-type discriminator dropdown.
+    # The clientside `chartTypeRenderOption` function in assets/chart_type_select.js renders
+    # each option as a two-line label + description entry.
+    chart_type_options = _build_chart_type_options(list(PX_CHART_METADATA.keys()))
+    charts_repr: dict = {
+        'chart_type': {
+            "form_layout": FlatSectionFormLayout(),
+            "input_kwargs": {
+                "searchable": True,
+                "data": chart_type_options,
+                "renderOption": {"function": "chartTypeRenderOption"},
+            },
+        }
+    }
     inner: dict = {}
 
     if data_source_names:
