@@ -417,11 +417,32 @@ class _DataTransforms(BaseModel):
         repr_type="Table",
         repr_kwargs={
             "column_defs_overrides": {
-                'column': {'flex': 2, 'cellEditor': {'function': 'PydfDropdown2'}},
-                'operator': {'flex': 1, 'cellEditor': {'function': 'PydfDropdown2'}},
+                'column': {'flex': 2, 'cellEditor': {'function': 'AllComponentEditors'},
+                           'cellEditorParams': {'component': {
+                               'type': 'Select',
+                               'namespace': 'dash_mantine_components',
+                           }},
+                           'cellEditorPopup': True,
+                           'cellDataType': 'text',
+                           'cellRenderer': '',},
+                'operator': {'flex': 1, 'cellEditor': {'function': 'AllComponentEditors'},
+                             'cellEditorParams': {'component': {
+                               'type': 'Select',
+                               'namespace': 'dash_mantine_components',
+                               'props': {'data': [
+                                      {"value": "==", "label": "=="},
+                                      {"value": "!=", "label": "!="},
+                                      {"value": ">", "label": ">"},
+                                      {"value": ">=", "label": ">="},
+                                      {"value": "<", "label": "<"},
+                                      {"value": "<=", "label": "<="},
+                               ]}
+                           }},
+                           'cellEditorPopup': True,
+                           'cellDataType': 'text'},
                 'value': {'flex': 2},
             },
-            "grid_kwargs": {'columnSize': None}
+            "grid_kwargs": {'columnSize': None},
         }
     )
     group_by: Optional[_DataGroupBy] = Field(
@@ -1436,8 +1457,8 @@ class PydanticChartEditor(html.Div):
             }
             # Suppose valid_cols is your list of valid columns
             columns_config = Patch()
-            columns_config[1]['cellEditorParams']['options'] = [{"value": c, "label": c} for c in valid_cols]
-            columns_config[1]['cellEditorParams']['searchable'] = False
+            columns_config[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
+            columns_config[1]['cellEditorParams']['component']['props']['searchable'] = False
             set_props(id_dict, {"columnDefs": columns_config, 'resetColumnState': True, 'columnSize': None})
             update = True
             transforms = chart_data.get("transforms", {})
