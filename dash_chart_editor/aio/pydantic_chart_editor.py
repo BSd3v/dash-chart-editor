@@ -334,7 +334,7 @@ class _DataFilter(BaseModel):
     column: Optional[str] = Field(default=None, title="Column",
                                    description="DataFrame column to filter on.", repr_type="Select",
                                    repr_kwargs={'option_labels': []})
-    operator: Optional[Literal["==", "!=", ">", ">=", "<", "<="]] = Field(
+    operator: Optional[Literal["==", "!=", ">", ">=", "<", "<=", "is blank", "is not blank"]] = Field(
         default="==", title="Operator",
         description="Comparison operator used for the filter.")
     value: Optional[str] = Field(default=None, title="Value",
@@ -437,6 +437,8 @@ class _DataTransforms(BaseModel):
                                       {"value": ">=", "label": ">="},
                                       {"value": "<", "label": "<"},
                                       {"value": "<=", "label": "<="},
+                                      {"value": "is blank", "label": "is blank"},
+                                      {"value": "is not blank", "label": "is not blank"},
                                ]}
                            }},
                            'cellEditorPopup': True,
@@ -472,7 +474,9 @@ def _apply_transforms(df: pd.DataFrame, transforms: Optional[_DataTransforms]) -
         col = f.column
         op = f.operator or "=="
         val_raw = f.value
-        if not col or col not in df.columns or val_raw is None or val_raw == "":
+        if not col or col not in df.columns or ((val_raw is None or val_raw == "")
+                                                and op not in ("is blank", "is not blank")
+        ):
             continue
         # Auto-cast value to the column dtype where possible.
         try:
@@ -488,14 +492,19 @@ def _apply_transforms(df: pd.DataFrame, transforms: Optional[_DataTransforms]) -
         except (ValueError, TypeError):
             val = val_raw
         try:
-            mask = {
-                "==": series == val,
-                "!=": series != val,
-                ">":  series > val,
-                ">=": series >= val,
-                "<":  series < val,
-                "<=": series <= val,
-            }[op]
+            if op == "is blank":
+                mask = series.isnull() | (series == "")
+            elif op == "is not blank":
+                mask = ~(series.isnull() | (series == ""))
+            else:
+                mask = {
+                    "==": series == val,
+                    "!=": series != val,
+                    ">":  series > val,
+                    ">=": series >= val,
+                    "<":  series < val,
+                    "<=": series <= val,
+                }[op]
             df = df[mask]
         except (TypeError, KeyError):
             pass  # Skip invalid comparison rather than crash.
@@ -1035,9 +1044,12 @@ class PydanticChartEditor(html.Div):
     def _to_figure(chart_type: str, data_frame: pd.DataFrame, chart_kwargs: dict) -> go.Figure:
         """Call the Plotly Express function for chart_type, filtering out blank kwargs."""
         chart_fn = getattr(px, chart_type)
+
+        # Get allowed kwargs for this chart type from metadata
+        allowed_kwargs = set(PX_CHART_METADATA[chart_type]["kwargs"])
         clean_kwargs = {
             k: v for k, v in chart_kwargs.items()
-            if v is not None and v != "" and v != []
+            if v is not None and v != "" and v != [] and k in allowed_kwargs
         }
         return chart_fn(data_frame=data_frame, **clean_kwargs)
 
@@ -1553,8 +1565,12 @@ class PydanticChartEditor(html.Div):
             for trace in trace_fig.data:
                 label = PydanticChartEditor._entry_display_name(chart_entry)
                 chart_type = getattr(chart_entry, "chart_type", None)
-                trace.update(yaxis=chart_entry.yaxis or 'y', xaxis=chart_entry.xaxis or 'x')
-                # trace.name = label or chart_type or "Chart"
+                try:
+                    trace.update(yaxis=chart_entry.yaxis or 'y', xaxis=chart_entry.xaxis or 'x')
+                except Exception as exc:  # pragma: no cover – surfaced in debug output below
+                    ## This can fail if the chart type doesn't support x/y axes, but we can still render the chart without axis assignment, 
+                    # so we catch and log it rather than fail the whole chart.
+                    pass
                 fig.add_trace(trace)
             has_data = True
 
