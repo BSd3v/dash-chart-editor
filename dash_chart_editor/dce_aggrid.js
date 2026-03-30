@@ -30,7 +30,11 @@ const AllComponentEditor = ({ value, ...params }, comp) => {
 
     if (comp.type == 'MultiSelect') {
         if (newValue.current && typeof newValue.current === 'string') {
-            newValue.current = JSON.parse(newValue.current)
+            try {
+                newValue.current = JSON.parse(newValue.current);
+            } catch (e) {
+                // If parsing fails, keep the original string value
+            }
         }
     }
     comp['props'] = {
