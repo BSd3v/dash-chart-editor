@@ -799,36 +799,12 @@ def _get_chart_union_type() -> Any:
     return _DYNAMIC_CHART_UNION
 
 _get_chart_union_type()
-
-_STABLE_ENTRY_TOP_KEYS = frozenset({"name", "data_source", "xaxis", "yaxis"})
-
-
 class StableChartEntry(BaseModel):
     name: str = Field(default="Chart", title="Name")
     data_source: Optional[str] = Field(default=None, title="Data Source", repr_type="Select")
     yaxis: Optional[str] = Field(default='y', title="Y Axis", description="Which y-axis to use (e.g., 'y', 'y2')", repr_kwargs={'n_cols':1})
     xaxis: Optional[str] = Field(default='x', title="X Axis", description="Which x-axis to use (e.g., 'x', 'x2')", repr_kwargs={'n_cols':1})
-    chart: _DYNAMIC_CHART_UNION = Field(..., title="Chart", discriminator="chart_type")
-
-    @model_validator(mode="before")  # type: ignore[arg-type]
-    @classmethod
-    def _reshape_flat_input(cls, data: Any) -> Any:  # noqa: N805
-        """Reshape flat input dicts (chart_type/common/... at top level) into nested chart format."""
-        if not isinstance(data, dict) or "chart" in data:
-            return data
-        # Pull entry-level fields
-        top: dict = {}
-        chart_d: dict = {}
-        for k, v in data.items():
-            if k in _STABLE_ENTRY_TOP_KEYS:
-                top[k] = v
-            elif k == "label":
-                top["name"] = v
-            else:
-                chart_d[k] = v
-        if chart_d:
-            top["chart"] = chart_d
-        return top
+    chart_type: _DYNAMIC_CHART_UNION = Field(..., title="Chart Type", discriminator="chart_type")
 
 def _get_editor_state_model() -> type[BaseModel]:
     """Return dynamic editor-state model containing chart union list + shared layout.
@@ -912,7 +888,7 @@ def _build_charts_fields_repr(
     ``"fields_repr"`` wrapper; that wrapping is applied by the higher-level
     form-building helpers when constructing the complete ``fields_repr`` config.
     """
-    charts_repr: dict = {'chart': {"form_layout": FlatSectionFormLayout()}}
+    charts_repr: dict = {'chart_type': {"form_layout": FlatSectionFormLayout()}}
     inner: dict = {}
 
     if data_source_names:
@@ -1008,7 +984,7 @@ def _build_charts_fields_repr(
             }
 
     if inner:
-        charts_repr['chart']["fields_repr"] = inner
+        charts_repr['chart_type']["fields_repr"] = inner
 
     return charts_repr
 
@@ -1271,9 +1247,7 @@ class PydanticChartEditor(html.Div):
     # Fields to skip when flattening section sub-models into Plotly Express kwargs.
     # Keep legacy 'label' here so old payloads never leak it into Plotly Express calls
     # as an unexpected kwarg during flattening.
-    # 'chart' = wrapper field on StableChartEntry (must not leak into px kwargs via flat fallback)
-    # 'chart_type' = discriminator string field on per-chart models (also not a px kwarg)
-    _SECTION_SKIP: frozenset = frozenset({"name", "label", "chart", "chart_type", "data_source",
+    _SECTION_SKIP: frozenset = frozenset({"name", "label", "chart_type", "data_source",
                                           "common", "advanced", "special", "transforms"})
 
     # Transform sub-fields that are column references (need cleaning when data source changes)
@@ -1321,20 +1295,20 @@ class PydanticChartEditor(html.Div):
         df = pd.DataFrame(records)
 
         # Apply per-entry data transforms (filters, group-by, sort) before charting.
-        transforms = getattr(entry.chart, "transforms", None)
+        transforms = getattr(entry['chart_type'], "transforms", None)
         if transforms is not None:
             try:
                 df = _apply_transforms(df, transforms)
             except (ValueError, TypeError, KeyError, AttributeError):
                 pass  # Skip malformed transform config rather than crash the chart.
 
-        kwargs = PydanticChartEditor._flatten_entry_kwargs(entry.chart)
+        kwargs = PydanticChartEditor._flatten_entry_kwargs(entry['chart_type'])
 
         # Need at least one column kwarg to render a meaningful chart.
         if not any(kwargs.get(f) for f in PydanticChartEditor._COLUMN_FIELDS):
             return None
 
-        chart_type = getattr(entry.chart, "chart_type", None)
+        chart_type = getattr(entry["chart_type"], "chart_type", None)
         kwargs.pop('name', None)  # name/label is used for display but not a valid px kwarg
         return PydanticChartEditor._to_figure(chart_type, df, kwargs)
 
@@ -1506,15 +1480,15 @@ class PydanticChartEditor(html.Div):
                 continue
             # Clean section sub-model column fields.
             # Sections may be stored at the top-level of the chart dict *or* nested under
-            # chart['chart'] (when the payload came from a StableChartEntry model).
+            # chart['chart_type'] (when the payload came from a StableChartEntry model).
             # We support both shapes and write cleaned data back to the same location.
-            chart_dict = chart.get("chart")
-            _nested = isinstance(chart_dict, dict)
+            chart_type_dict = chart.get("chart_type")
+            _nested = isinstance(chart_type_dict, dict)
             # Copy once before the loop so nested writes are collected into a single dict.
             if _nested:
-                chart_dict = dict(chart_dict)
+                chart_type_dict = dict(chart_type_dict)
             for section_name in ("common", "advanced", "special"):
-                section = chart_dict.get(section_name) if _nested else chart.get(section_name)
+                section = chart_type_dict.get(section_name) if _nested else chart.get(section_name)
                 if not isinstance(section, dict):
                     continue
                 cleaned: dict = {}
@@ -1532,11 +1506,11 @@ class PydanticChartEditor(html.Div):
                         cleaned[k] = v
                 # Write back to the same location we read from.
                 if _nested:
-                    chart_dict[section_name] = cleaned
+                    chart_type_dict[section_name] = cleaned
                 else:
                     chart[section_name] = cleaned
             if _nested:
-                chart["chart"] = chart_dict
+                chart["chart_type"] = chart_type_dict
             # Clean transform column fields
             transforms = chart.get("transforms")
             if isinstance(transforms, dict):
@@ -1658,7 +1632,7 @@ class PydanticChartEditor(html.Div):
             if _id['field'] == 'chart_type':
                 chart_type = _new_value
             else:
-                chart_type = chart_entry.get("chart", {}).get("chart_type")
+                chart_type = chart_entry.get("chart_type", {}).get("chart_type")
             if not chart_type:
                 continue
             meta = PX_CHART_METADATA.get(chart_type)
@@ -1668,7 +1642,7 @@ class PydanticChartEditor(html.Div):
             valid_cols = col_names.get(src, []) if isinstance(col_names, dict) else []
             if not isinstance(valid_cols, list):
                 valid_cols = list(valid_cols)
-            chart_data = chart_entry.get('chart', {})
+            chart_data = chart_entry['chart_type']
 
             if _id['field'] == 'column':
                 set_props(_id, {'data': [{"value": col, "label": col} for col in valid_cols]})
@@ -1684,7 +1658,7 @@ class PydanticChartEditor(html.Div):
                             "aio_id": _id['aio_id'],
                             "form_id": _PYDF_FORM_ID,
                             "field": field,
-                            "parent": f"charts:{i}:chart:{section}",
+                            "parent": f"charts:{i}:chart_type:{section}",
                             "meta": "",
                         }
                         new_push = {"data": [{"value": c, "label": c} for c in valid_cols]}
@@ -1704,7 +1678,7 @@ class PydanticChartEditor(html.Div):
                 "form_id": _PYDF_FORM_ID,
                 "field": "filters",
                 "meta": "",
-                "parent": f"charts:{i}:chart:transforms"
+                "parent": f"charts:{i}:chart_type:transforms"
             }
             # Suppose valid_cols is your list of valid columns
             columns_config = Patch()
@@ -1718,7 +1692,7 @@ class PydanticChartEditor(html.Div):
                 "aio_id": _id['aio_id'],
                 "form_id": _PYDF_FORM_ID,
                 "field": "aggregations",
-                "parent": f"charts:{i}:chart:transforms:group_by",
+                "parent": f"charts:{i}:chart_type:transforms:group_by",
                 "meta": "",
             }
             aggregations_patch = Patch()
@@ -1736,7 +1710,7 @@ class PydanticChartEditor(html.Div):
                         "aio_id": _id['aio_id'],
                         "form_id": _PYDF_FORM_ID,
                         "field": "group_by_columns",
-                        "parent": f"charts:{i}:chart:transforms:group_by",
+                        "parent": f"charts:{i}:chart_type:transforms:group_by",
                         "meta": "",
                     }
                     set_props(id_dict, {"value": [None if col not in valid_cols else col for col in group_by_col], 'data': [{"value": c, "label": c} for c in valid_cols]})
@@ -1750,7 +1724,7 @@ class PydanticChartEditor(html.Div):
                         "aio_id": _id['aio_id'],
                         "form_id": _PYDF_FORM_ID,
                         "field": "sort_by",
-                        "parent": f"charts:{i}:chart:transforms:sort",
+                        "parent": f"charts:{i}:chart_type:transforms:sort",
                         "meta": "",
                     }
                     set_props(id_dict, {"value": None if sort_col not in valid_cols else sort_col, 'data': [{"value": c, "label": c} for c in valid_cols]})
@@ -1795,14 +1769,14 @@ class PydanticChartEditor(html.Div):
                 trace_fig = PydanticChartEditor._entry_to_figure(chart_entry, all_sources)
             except Exception as exc:  # pragma: no cover – surfaced in debug output below
                 label = PydanticChartEditor._entry_display_name(chart_entry)
-                chart_type = getattr(getattr(chart_entry, "chart", None), "chart_type", None)
+                chart_type = getattr(chart_entry, "chart_type", None)
                 render_errors.append(f"Error rendering '{label or chart_type}': {exc}")
                 continue
             if trace_fig is None:
                 continue
             for trace in trace_fig.data:
                 label = PydanticChartEditor._entry_display_name(chart_entry)
-                chart_type = getattr(getattr(chart_entry, "chart", None), "chart_type", None)
+                chart_type = getattr(chart_entry, "chart_type", None)
                 try:
                     trace.update(yaxis=chart_entry.yaxis or 'y', xaxis=chart_entry.xaxis or 'x')
                 except Exception as exc:  # pragma: no cover – surfaced in debug output below
