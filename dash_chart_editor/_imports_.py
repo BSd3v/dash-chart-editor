@@ -3,12 +3,12 @@ from .DashChartEditor import DashChartEditor
 # Import AIO components if available
 try:
     from . import aio
-    from .aio import ChartEditorAIO, MultiChartEditorAIO
+    from .aio import PydanticChartEditor, create_pydantic_chart_editor_app
     __all__ = [
         "DashChartEditor",
         "aio",
-        "ChartEditorAIO", 
-        "MultiChartEditorAIO"
+        "PydanticChartEditor",
+        "create_pydantic_chart_editor_app",
     ]
 except ImportError:
     __all__ = [
