@@ -86,11 +86,11 @@ const AllComponentEditor = ({ value, ...params }, comp) => {
         params.api.addEventListener('cellEditingStopped', handleStop);
         document.addEventListener('keydown', handleKeyDown);
         params.colDef.suppressKeyboardEvent = (params) => {
-            suppress = params.editing ? (params.event.key != 'Tab' && params.event.key != 'Escape') : false
+            let suppress = params.editing ? (params.event.key != 'Tab' && params.event.key != 'Escape') : false;
             if (['Select', 'MultiSelect'].includes(comp.type) && suppress && params.event.key == 'Enter') {
-                suppress = currentProps.current?.dropdownOpened
+                suppress = currentProps.current?.dropdownOpened;
             }
-            return suppress
+            return suppress;
         }
         return () => {
             setTimeout(() => {document.removeEventListener('keydown', handleKeyDown)
