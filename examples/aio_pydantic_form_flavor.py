@@ -4,6 +4,7 @@ import dash_mantine_components as dmc
 from dash import html
 import pandas as pd
 from dash_chart_editor.aio.pydantic_chart_editor import PydanticChartEditor
+from plotly.express.data import iris, tips, gapminder
 
 # Sample data
 df = pd.DataFrame({
@@ -13,7 +14,12 @@ df = pd.DataFrame({
 })
 
 # Register data sources globally for the AIO
-data_sources = {"Sample Data": df}
+data_sources = {
+    "Sample Data": df,
+    "Iris": iris(),
+    "Tips": tips(),
+    "Gapminder": gapminder()
+}
 
 # Create the Dash app
 app = dash.Dash(__name__)
