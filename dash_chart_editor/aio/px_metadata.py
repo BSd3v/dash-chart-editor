@@ -205,9 +205,17 @@ def get_px_chart_metadata() -> dict[str, dict[str, Any]]:
         fixed_options: dict[str, list[str]] = {}
         param_defaults: dict[str, Any] = {}
 
+        # Parameters that should only be set at the layout level for maps
+        MAP_LAYOUT_PARAMS = {"projection", "scope", "center", "fitbounds", "basemap_visible", "mapbox_style", "zoom"}
+
         for param in sig.parameters.values():
-            if param.name in ["data_frame", 'title', 'template', 'boxmode', 'barmode', 'violinmode', 'log_x', 'log_y',
-                              'width', 'height', 'range_x', 'range_y'] or param.name.startswith("facet_") or param.name.startswith("animation_"):
+            if (
+                param.name in ["data_frame", 'title', 'template', 'boxmode', 'barmode', 'violinmode', 'log_x', 'log_y',
+                              'width', 'height', 'range_x', 'range_y']
+                or param.name.startswith("facet_")
+                or param.name.startswith("animation_")
+                or param.name in MAP_LAYOUT_PARAMS
+            ):
                 continue
             if param.kind not in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY):
                 continue

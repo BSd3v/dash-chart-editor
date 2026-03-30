@@ -260,6 +260,12 @@ def _apply_relayout(fig: go.Figure, relayout_data: dict) -> None:
 
 from plotly.io import templates
 
+class MapCenter(BaseModel):
+    lat: Optional[float] = Field(None, ge=-90, le=90, title="Latitude", description="Center latitude (-90 to 90)",
+                                 json_schema_extra={'repr_kwargs': {'n_cols': 1}})
+    lon: Optional[float] = Field(None, ge=-180, le=180, title="Longitude", description="Center longitude (-180 to 180)",
+                                 json_schema_extra={'repr_kwargs': {'n_cols': 1}})
+
 class _LayoutConfig(BaseModel):
     """Shared layout options applied across all charts in the same figure."""
 
@@ -316,6 +322,36 @@ class _LayoutConfig(BaseModel):
     xaxis2_type: Optional[Literal["linear", "log", "category"]] = Field(default="linear", title="Secondary X Axis Scale", repr_kwargs={'visible': ('xaxis2_show', '==', True)})
     xaxis2_range: Optional[List[float]] = Field(default=None, title="Secondary X Axis Range", repr_kwargs={'visible': ('xaxis2_show', '==', True)})
 
+        # --- Map (geo) layout options ---
+    projection: Optional[Literal[
+        "equirectangular", "mercator", "orthographic", "natural earth", "kavrayskiy7", "miller", "robinson", "eckert4", "azimuthal equal area", 
+        "azimuthal equidistant", "conic equidistant"
+    ]] = Field(
+        default=None, title="Projection",
+        description="Map projection type (e.g., 'equirectangular', 'mercator', etc.)."
+    )
+    scope: Optional[Literal['africa', 'asia', 'europe', 'north america', 'south america', 'usa', 'world']] = Field(
+        default=None, title="Scope",
+        description="Region to display."
+    )
+    center: Optional[MapCenter] = Field(
+        default=None, title="Map Center",
+        description="Center point of the map as a dict with 'lat' and 'lon'."
+    )
+    fitbounds: Optional[Literal['locations', 'geojson', 'false']] = Field(
+        default=None, title="Fitbounds",
+        description="How map fits to data ('locations', 'geojson', or 'false')."
+    )
+
+    # --- Mapbox layout options ---
+    mapbox_style: Optional[str] = Field(
+        default=None, title="Mapbox Style",
+        description="Mapbox style (e.g., 'open-street-map', 'carto-positron', etc.)."
+    )
+    zoom: Optional[int] = Field(
+        default=None, title="Mapbox Zoom",
+        description="Zoom level for mapbox maps (0-20)."
+    )
 
 # ── Data transform models ─────────────────────────────────────────────────────
 
@@ -1287,7 +1323,7 @@ class PydanticChartEditor(html.Div):
 
     @staticmethod
     def _apply_shared_layout(fig: go.Figure, layout_cfg: _LayoutConfig) -> None:
-        """Apply shared _LayoutConfig settings to the figure in-place."""
+        """Apply shared _LayoutConfig settings to the figure in-place, including geo/mapbox keys for maps."""
         def clean_dict(d):
             """Recursively remove empty values from a dict."""
             if not isinstance(d, dict):
@@ -1296,18 +1332,30 @@ class PydanticChartEditor(html.Div):
             for k, v in d.items():
                 if isinstance(v, dict):
                     v = clean_dict(v)
-                if v not in (None, "", [], {}, ()):
+                if v not in (None, "", [], {}, ( )):
                     cleaned[k] = v
             return cleaned
+
         layout_dict = layout_cfg.model_dump(exclude_none=True)
         layout_dict = clean_dict(layout_dict)
+
+        # Map-specific layout keys
+        geo_keys = {"projection", "scope", "center", "fitbounds"}
+        mapbox_keys = {"center", "zoom", "mapbox_style"}
+        geo_dict = {k: layout_dict.pop(k) for k in list(layout_dict.keys()) if k in geo_keys}
+        mapbox_dict = {k: layout_dict.pop(k) for k in list(layout_dict.keys()) if k in mapbox_keys}
+        # projection must be nested: {"type": ...}
+        if "projection" in geo_dict and isinstance(geo_dict["projection"], str):
+            geo_dict["projection"] = {"type": geo_dict["projection"]}
+        if "mapbox_style" in mapbox_dict:
+            mapbox_dict["style"] = mapbox_dict.pop("mapbox_style")
+
         legend_update: dict = {}
         layout_update: dict = {}
         for key, val in layout_dict.items():
             if key.startswith("xaxis") or key.startswith("yaxis"):
-                # xaxis_title, yaxis_type, etc. go in update_xaxes / update_yaxes calls, not layout.
                 continue
-            if val in (None, "", [], {}, ()):
+            if val in (None, "", [], {}, ( )):
                 continue
             if key.startswith("legend_"):
                 legend_update[key[len("legend_"):]] = val
@@ -1315,6 +1363,10 @@ class PydanticChartEditor(html.Div):
                 layout_update[key] = val
         if legend_update:
             layout_update["legend"] = legend_update
+        if geo_dict:
+            layout_update["geo"] = geo_dict
+        if mapbox_dict:
+            layout_update["mapbox"] = mapbox_dict
         if layout_update:
             fig.update_layout(**layout_update)
         if layout_cfg.xaxis_title:
@@ -1349,6 +1401,69 @@ class PydanticChartEditor(html.Div):
                     side='top'
                 )
             )
+    # def _apply_shared_layout(fig: go.Figure, layout_cfg: _LayoutConfig) -> None:
+    #     """Apply shared _LayoutConfig settings to the figure in-place."""
+    #     def clean_dict(d):
+    #         """Recursively remove empty values from a dict."""
+    #         if not isinstance(d, dict):
+    #             return d
+    #         cleaned = {}
+    #         for k, v in d.items():
+    #             if isinstance(v, dict):
+    #                 v = clean_dict(v)
+    #             if v not in (None, "", [], {}, ()):
+    #                 cleaned[k] = v
+    #         return cleaned
+    #     layout_dict = layout_cfg.model_dump(exclude_none=True)
+    #     layout_dict = clean_dict(layout_dict)
+    #     legend_update: dict = {}
+    #     layout_update: dict = {}
+    #     for key, val in layout_dict.items():
+    #         if key.startswith("xaxis") or key.startswith("yaxis"):
+    #             # xaxis_title, yaxis_type, etc. go in update_xaxes / update_yaxes calls, not layout.
+    #             continue
+    #         if val in (None, "", [], {}, ()):
+    #             continue
+    #         if key.startswith("legend_"):
+    #             legend_update[key[len("legend_"):]] = val
+    #         else:
+    #             layout_update[key] = val
+    #     if legend_update:
+    #         layout_update["legend"] = legend_update
+    #     if layout_update:
+    #         fig.update_layout(**layout_update)
+    #     if layout_cfg.xaxis_title:
+    #         fig.update_xaxes(title_text=layout_cfg.xaxis_title)
+    #     if layout_cfg.yaxis_title:
+    #         fig.update_yaxes(title_text=layout_cfg.yaxis_title)
+    #     if layout_cfg.xaxis_type:
+    #         fig.update_xaxes(type=layout_cfg.xaxis_type)
+    #     if layout_cfg.yaxis_type:
+    #         fig.update_yaxes(type=layout_cfg.yaxis_type)
+    #     if layout_cfg.xaxis_range:
+    #         fig.update_xaxes(range=layout_cfg.xaxis_range)
+    #     if layout_cfg.yaxis_range:
+    #         fig.update_yaxes(range=layout_cfg.yaxis_range)
+    #     if layout_cfg.yaxis2_show:
+    #         fig.update_layout(
+    #             yaxis2=dict(
+    #                 title=layout_cfg.yaxis2_title,
+    #                 type=layout_cfg.yaxis2_type,
+    #                 range=layout_cfg.yaxis2_range,
+    #                 overlaying='y',
+    #                 side='right'
+    #             )
+    #         )
+    #     if layout_cfg.xaxis2_show:
+    #         fig.update_layout(
+    #             xaxis2=dict(
+    #                 title=layout_cfg.xaxis2_title,
+    #                 type=layout_cfg.xaxis2_type,
+    #                 range=layout_cfg.xaxis2_range,
+    #                 overlaying='x',
+    #                 side='top'
+    #             )
+    #         )
 
     @staticmethod
     def _clean_form_data_for_sources(form_data: dict, col_names: dict) -> dict:
@@ -1443,6 +1558,7 @@ class PydanticChartEditor(html.Div):
                                                   FormSection(name="General", fields=["title", "showlegend", "legend_position", "legend_orientation", "legend_xanchor", "legend_yanchor", "legend_x", "legend_y"],
                                                               default_open=True),
                                                   FormSection(name="Appearance", fields=["template", "boxmode", "barmode", "violinmode", "margin_l", "margin_r", "margin_t", "margin_b"]),
+                                                  FormSection(name="Map/Geo", fields=["projection", "scope", "center", "fitbounds", "mapbox_style", "zoom"]),
                                                   FormSection(name="Axis", fields=["xaxis_title", "xaxis_type", "xaxis_range", "yaxis_title", "yaxis_type", "yaxis_range"]),
                                                   FormSection(name="Secondary Axis", fields=["yaxis2_show", "yaxis2_title", "yaxis2_type", "yaxis2_range", "xaxis2_show", "xaxis2_title", "xaxis2_type", "xaxis2_range"]),
                                               ],
@@ -1662,12 +1778,12 @@ class PydanticChartEditor(html.Div):
         if not has_data:
             debug = "\n".join(render_errors) if render_errors else "Select chart type, data source, and at least one column to render."
             return go.Figure(), debug, {}
-
-        PydanticChartEditor._apply_shared_layout(fig, state.shared_layout)
-
+        
         # Re-apply any in-graph user edits that are not captured by the layout form.
         if relayout_data:
             _apply_relayout(fig, relayout_data)
+
+        PydanticChartEditor._apply_shared_layout(fig, state.shared_layout)
 
         debug = json.dumps(form_data, indent=2, default=str)
         if render_errors:
@@ -1719,7 +1835,19 @@ clientside_callback(
             "paper_bgcolor": "paper_bgcolor",
             "plot_bgcolor": "plot_bgcolor",
             "width": "width",
-            "height": "height"
+            "height": "height",
+            "xaxis.title.text": "xaxis_title",
+            "xaxis.type": "xaxis_type",
+            "xaxis.range": "xaxis_range",
+            "yaxis.title.text": "yaxis_title",
+            "yaxis.type": "yaxis_type",
+            "yaxis.range": "yaxis_range",
+            "yaxis2.title.text": "yaxis2_title",
+            "yaxis2.type": "yaxis2_type",
+            "yaxis2.range": "yaxis2_range",
+            "xaxis2.title.text": "xaxis2_title",
+            "xaxis2.type": "xaxis2_type",
+            "xaxis2.range": "xaxis2_range",
         };
         Object.keys(relayoutToLayout).forEach(function(relayoutKey) {
             if (relayoutData.hasOwnProperty(relayoutKey)) {
