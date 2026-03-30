@@ -1662,10 +1662,10 @@ class PydanticChartEditor(html.Div):
             # Handle transform fields (filters, group_by, sort)
             # # Filters
             id_dict = {
-                "aio_id": "demo",
                 "component": "_pydf-editable-table-table",
+                "aio_id": _id['aio_id'],
+                "form_id": _PYDF_FORM_ID,
                 "field": "filters",
-                "form_id": "pydantic-chart-editor-form",
                 "meta": "",
                 "parent": f"charts:{i}:chart_type:transforms"
             }
