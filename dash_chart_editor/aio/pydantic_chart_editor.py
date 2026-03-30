@@ -884,7 +884,13 @@ def _build_charts_fields_repr(
     data_source_names: list,
     all_columns: list,
 ) -> dict:
-    """Build the ``fields_repr`` dict for the ``charts`` list in ModelForm.
+    """Build the per-field ``fields_repr`` overrides for the ``charts`` list.
+
+    The returned dict is keyed by field name (e.g. ``"chart_type"``, ``"data_source"``,
+    ``"x"``, ``"y"``, etc.) and is intended to be used as the value for the ``"charts"``
+    entry in the outer ``fields_repr`` passed to :class:`ModelForm`, e.g.::
+
+        ModelForm(..., fields_repr={"charts": _build_charts_fields_repr(...)})
 
     Overrides:
     - ``data_source`` → Select dropdown populated with *data_source_names*.
@@ -892,10 +898,9 @@ def _build_charts_fields_repr(
       dropdowns populated with *all_columns* (union of columns across all data sources).
     - Transform column fields (filter column, group-by columns, sort column) → same.
 
-    Returns a dict suitable for ``ModelForm(fields_repr={"charts": ...})``.
-    The returned dict always contains ``"form_layout"``.  ``"fields_repr"`` is only
-    added when there are data source names or columns to populate — an empty override
-    dict would be ignored by pydf but is omitted here for clarity.
+    Note that the dict returned by this helper does *not* include a top-level
+    ``"fields_repr"`` wrapper; that wrapping is applied by the higher-level
+    form-building helpers when constructing the complete ``fields_repr`` config.
     """
     charts_repr: dict = {'chart_type': {"form_layout": FlatSectionFormLayout()}}
     inner: dict = {}
