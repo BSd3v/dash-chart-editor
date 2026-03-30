@@ -1,8 +1,4 @@
-"""
-AIO Single Chart Editor Example
-
-Demonstrates the usage of ChartEditorAIO component with the DCC flavor.
-"""
+"""AIO Single Chart Editor Example."""
 
 import dash
 from dash import html, dcc, Input, Output, callback
@@ -39,7 +35,7 @@ app.config.suppress_callback_exceptions = True
 app.layout = html.Div([
     html.Div([
         html.H1("Chart Editor AIO - Single Chart Example", className="text-center mb-4"),
-        html.P("This example demonstrates the ChartEditorAIO component using native Dash components.", 
+        html.P("This example demonstrates the ChartEditorAIO component using dash-pydantic-form.", 
                className="text-center text-muted"),
         html.Hr()
     ], className="container-fluid bg-light py-3 mb-4"),
@@ -48,7 +44,7 @@ app.layout = html.Div([
         ChartEditorAIO(
             data_sources=data_sources,
             aio_id="main-editor",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
     ], className="container-fluid"),
     

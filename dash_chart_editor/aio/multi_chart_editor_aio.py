@@ -88,7 +88,7 @@ class MultiChartEditorAIO(html.Div):
         self,
         data_sources: Optional[Dict[str, Any]] = None,
         aio_id: Optional[str] = None,
-        flavor: str = 'dcc',
+        flavor: str = 'pydantic_form',
         **kwargs
     ):
         """
@@ -97,7 +97,7 @@ class MultiChartEditorAIO(html.Div):
         Args:
             data_sources: Dictionary of dataframes with names as keys
             aio_id: Unique identifier for this AIO instance
-            flavor: UI flavor - 'dcc' or 'pydantic_form'
+            flavor: UI flavor - 'pydantic_form'
             **kwargs: Additional properties passed to the container
         """
         if aio_id is None:
@@ -110,11 +110,11 @@ class MultiChartEditorAIO(html.Div):
             name: df.to_dict("records") if hasattr(df, "to_dict") else []
             for name, df in self.data_sources.items()
         }
-        if flavor not in {"dcc", "pydantic_form"}:
-            raise ValueError(f"Unsupported flavor: {flavor}. Must be one of: dcc, pydantic_form")
+        if flavor != "pydantic_form":
+            raise ValueError(f"Unsupported flavor: {flavor}. Must be: pydantic_form")
         
         # Validate flavor
-        if flavor == 'pydantic_form' and not PYDANTIC_FORM_AVAILABLE:
+        if not PYDANTIC_FORM_AVAILABLE:
             raise ImportError("dash_pydantic_form is required for 'pydantic_form' flavor")
         
         # Build the component
@@ -127,69 +127,8 @@ class MultiChartEditorAIO(html.Div):
         )
     
     def _build_layout(self):
-        """Build the layout based on the selected flavor"""
-        if self.flavor == 'pydantic_form':
-            return self._build_pydantic_form_layout()
-        else:
-            return self._build_dcc_layout()
-    
-    def _build_dcc_layout(self):
-        """Build layout using DCC components"""
-        return [
-            html.Div([
-                html.H3("Multi-Chart Editor", style={'marginBottom': '20px'}),
-                
-                # Chart management section
-                html.Div([
-                    html.Div([
-                        html.H5("Chart Management"),
-                        html.Div([
-                            html.Button("Add Chart", id=self.ids.add_chart_btn(self.aio_id), 
-                                      className="btn btn-primary", 
-                                      style={'marginRight': '10px'}),
-                            html.Button("Remove Chart", id=self.ids.remove_chart_btn(self.aio_id),
-                                      className="btn btn-danger")
-                        ], style={'marginBottom': '15px'}),
-                        
-                        html.Label("Select Chart to Edit:"),
-                        dcc.Dropdown(
-                            id=self.ids.selected_chart(self.aio_id),
-                            options=[],
-                            value=None,
-                            placeholder="No charts created yet"
-                        ),
-                        
-                        html.Div(style={'height': '20px'}),
-                        
-                        html.Label("Display Mode:"),
-                        dcc.Dropdown(
-                            id=self.ids.layout_mode(self.aio_id),
-                            options=self.LAYOUT_MODES,
-                            value='single',
-                            clearable=False
-                        )
-                    ], style={'marginBottom': '20px'}),
-                    
-                    # Chart editor container
-                    html.Div(id=self.ids.chart_editor_container(self.aio_id), children=[
-                        html.Div("Select or create a chart to start editing.", 
-                               style={'textAlign': 'center', 'color': 'gray', 'padding': '20px'})
-                    ])
-                ], style={'width': '35%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '20px'}),
-                
-                # Charts display area
-                html.Div([
-                    html.Div(id=self.ids.charts_display(self.aio_id), children=[
-                        html.Div("No charts to display.", 
-                               style={'textAlign': 'center', 'color': 'gray', 'padding': '50px'})
-                    ])
-                ], style={'width': '63%', 'display': 'inline-block', 'marginLeft': '2%'}),
-                
-                # Hidden storage for charts data / data sources used by callbacks
-                dcc.Store(id=self.ids.charts_data(self.aio_id), data="[]"),
-                dcc.Store(id=self.ids.data_sources_store(self.aio_id), data=self._serialized_data_sources),
-            ])
-        ]
+        """Build the layout."""
+        return self._build_pydantic_form_layout()
     
     def _build_pydantic_form_layout(self):
         """Build layout using dash-pydantic-form"""

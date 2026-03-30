@@ -1,8 +1,5 @@
 """
 ChartEditorAIO - Single Chart Editor All-In-One Component
-
-A native Dash AIO component that provides chart editing capabilities
-using standard Dash components instead of react-chart-editor.
 """
 
 import uuid
@@ -67,7 +64,7 @@ class ChartEditorAIO(html.Div):
         self,
         data_sources: Optional[Dict[str, pd.DataFrame]] = None,
         aio_id: Optional[str] = None,
-        flavor: str = 'dcc',
+        flavor: str = 'pydantic_form',
         **kwargs
     ):
         """
@@ -76,7 +73,7 @@ class ChartEditorAIO(html.Div):
         Args:
             data_sources: Dictionary of dataframes with names as keys
             aio_id: Unique identifier for this AIO instance
-            flavor: UI flavor - 'dcc' or 'pydantic_form'
+            flavor: UI flavor - 'pydantic_form'
             **kwargs: Additional properties passed to the container
         """
         if aio_id is None:
@@ -87,7 +84,9 @@ class ChartEditorAIO(html.Div):
         self.data_sources = data_sources or {}
         
         # Validate flavor
-        if flavor == 'pydantic_form' and not PYDANTIC_FORM_AVAILABLE:
+        if flavor != 'pydantic_form':
+            raise ValueError(f"Unsupported flavor: {flavor}. Must be: pydantic_form")
+        if not PYDANTIC_FORM_AVAILABLE:
             raise ImportError("dash_pydantic_form is required for 'pydantic_form' flavor")
         
         # Build the component
@@ -100,71 +99,8 @@ class ChartEditorAIO(html.Div):
         )
     
     def _build_layout(self):
-        """Build the layout based on the selected flavor"""
-        if self.flavor == 'pydantic_form':
-            return self._build_pydantic_form_layout()
-        else:
-            return self._build_dcc_layout()
-    
-    def _build_dcc_layout(self):
-        """Build layout using DCC components"""
-        data_source_options = [{'label': name, 'value': name} for name in self.data_sources.keys()]
-        
-        return [
-            html.Div([
-                html.H4("Chart Editor", style={'marginBottom': '20px'}),
-                
-                # Chart configuration controls
-                html.Div([
-                    html.Div([
-                        html.Label("Chart Type:"),
-                        dcc.Dropdown(
-                            id=self.ids.chart_type(self.aio_id),
-                            options=self.CHART_TYPES,
-                            value='scatter',
-                            clearable=False
-                        )
-                    ], style={'width': '48%', 'display': 'inline-block'}),
-                    
-                    html.Div([
-                        html.Label("Data Source:"),
-                        dcc.Dropdown(
-                            id=self.ids.data_source(self.aio_id),
-                            options=data_source_options,
-                            value=list(self.data_sources.keys())[0] if self.data_sources else None,
-                            clearable=False
-                        )
-                    ], style={'width': '48%', 'display': 'inline-block', 'marginLeft': '4%'})
-                ], style={'marginBottom': '20px'}),
-                
-                # Column selection controls
-                html.Div(id=f"column-controls-{self.aio_id}", children=[
-                    self._build_column_controls([])
-                ]),
-                
-                # Chart title
-                html.Div([
-                    html.Label("Chart Title:"),
-                    dcc.Input(
-                        id=self.ids.title(self.aio_id),
-                        type='text',
-                        placeholder='Enter chart title...',
-                        style={'width': '100%'}
-                    )
-                ], style={'marginBottom': '20px'}),
-                
-            ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '20px'}),
-            
-            # Chart display area
-            html.Div([
-                dcc.Graph(
-                    id=self.ids.chart(self.aio_id),
-                    style={'height': '600px'}
-                ),
-                # Hidden div to store figure data
-                html.Div(id=self.ids.figure_data(self.aio_id), style={'display': 'none'})
-            ], style={'width': '68%', 'display': 'inline-block', 'marginLeft': '2%'})
-        ]
+        """Build the layout."""
+        return self._build_pydantic_form_layout()
     
     def _build_pydantic_form_layout(self):
         """Build layout using dash-pydantic-form"""

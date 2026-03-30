@@ -46,7 +46,7 @@ app.layout = html.Div([
         MultiChartEditorAIO(
             data_sources=data_sources,
             aio_id="multi-editor",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
     ], className="container-fluid"),
     

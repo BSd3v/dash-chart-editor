@@ -27,24 +27,24 @@ class TestChartEditorAIO(unittest.TestCase):
         }
         self.app = Dash(__name__)
     
-    def test_component_initialization_dcc(self):
-        """Test component initialization with DCC flavor"""
+    def test_component_initialization_pydantic(self):
+        """Test component initialization with pydantic-form flavor"""
         component = ChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="test-editor",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.assertIsInstance(component, html.Div)
         self.assertEqual(component.aio_id, "test-editor")
-        self.assertEqual(component.flavor, "dcc")
+        self.assertEqual(component.flavor, "pydantic_form")
         self.assertEqual(component.data_sources, self.data_sources)
     
     def test_component_initialization_auto_id(self):
         """Test component initialization with auto-generated ID"""
         component = ChartEditorAIO(
             data_sources=self.data_sources,
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.assertIsInstance(component, html.Div)
@@ -55,7 +55,7 @@ class TestChartEditorAIO(unittest.TestCase):
         """Test component initialization without data sources"""
         component = ChartEditorAIO(
             aio_id="empty-editor",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.assertIsInstance(component, html.Div)
@@ -91,18 +91,18 @@ class TestChartEditorAIO(unittest.TestCase):
     
     def test_invalid_flavor_raises_error(self):
         """Test that invalid flavor raises an error"""
-        with self.assertRaises(ImportError):
+        with self.assertRaises(ValueError):
             ChartEditorAIO(
                 data_sources=self.data_sources,
-                flavor="dmc"  # Should fail if DMC not installed
+                flavor="not-supported"
             )
     
-    def test_layout_generation_dcc(self):
-        """Test that DCC layout is generated properly"""
+    def test_layout_generation(self):
+        """Test that layout is generated properly"""
         component = ChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="layout-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         # Component should have children
@@ -116,7 +116,7 @@ class TestChartEditorAIO(unittest.TestCase):
         component = ChartEditorAIO(
             data_sources={},
             aio_id="empty-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         controls = component._build_column_controls([])
@@ -127,7 +127,7 @@ class TestChartEditorAIO(unittest.TestCase):
         component = ChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="data-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         test_columns = ['col1', 'col2', 'col3']
@@ -140,7 +140,7 @@ class TestChartEditorAIO(unittest.TestCase):
         component = ChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="app-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.app.layout = html.Div([component])

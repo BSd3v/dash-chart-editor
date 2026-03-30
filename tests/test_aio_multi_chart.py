@@ -27,24 +27,24 @@ class TestMultiChartEditorAIO(unittest.TestCase):
         }
         self.app = Dash(__name__)
     
-    def test_component_initialization_dcc(self):
-        """Test component initialization with DCC flavor"""
+    def test_component_initialization_pydantic(self):
+        """Test component initialization with pydantic-form flavor"""
         component = MultiChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="test-multi-editor",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.assertIsInstance(component, html.Div)
         self.assertEqual(component.aio_id, "test-multi-editor")
-        self.assertEqual(component.flavor, "dcc")
+        self.assertEqual(component.flavor, "pydantic_form")
         self.assertEqual(component.data_sources, self.data_sources)
     
     def test_component_initialization_auto_id(self):
         """Test component initialization with auto-generated ID"""
         component = MultiChartEditorAIO(
             data_sources=self.data_sources,
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.assertIsInstance(component, html.Div)
@@ -79,12 +79,12 @@ class TestMultiChartEditorAIO(unittest.TestCase):
         for mode in expected_modes:
             self.assertIn(mode, available_modes)
     
-    def test_layout_generation_dcc(self):
-        """Test that DCC layout is generated properly"""
+    def test_layout_generation(self):
+        """Test that layout is generated properly"""
         component = MultiChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="multi-layout-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         # Component should have children
@@ -98,7 +98,7 @@ class TestMultiChartEditorAIO(unittest.TestCase):
         component = MultiChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="multi-app-test",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         self.app.layout = html.Div([component])
@@ -111,7 +111,7 @@ class TestMultiChartEditorAIO(unittest.TestCase):
         with self.assertRaises(ValueError):
             MultiChartEditorAIO(
                 data_sources=self.data_sources,
-                flavor="dmc"  # Should fail if DMC not installed
+                flavor="not-supported"
             )
 
 
@@ -132,13 +132,13 @@ class TestAIOIntegration(unittest.TestCase):
         single_editor = ChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="single",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         multi_editor = MultiChartEditorAIO(
             data_sources=self.data_sources,
             aio_id="multi",
-            flavor="dcc"
+            flavor="pydantic_form"
         )
         
         app.layout = html.Div([
