@@ -67,7 +67,7 @@ COMMON_PARAM_NAMES: frozenset[str] = frozenset({
     "x", "y", "z", "r", "theta", "a", "b", "c", "base", "measure",
     "color", "symbol", "size", "text",
     "names", "values", "parents", "ids",
-    "lat", "lon", "locations",
+    "lat", "lon", "locations", "locationmode",
     "opacity", "path"
 })
 

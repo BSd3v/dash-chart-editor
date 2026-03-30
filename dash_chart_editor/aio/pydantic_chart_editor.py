@@ -1215,7 +1215,7 @@ class PydanticChartEditor(html.Div):
     # Subset of COMMON_PARAM_NAMES that are actual column references (not opacity/hover_data/etc.)
     # used to decide whether a meaningful chart can be rendered.
     _COLUMN_FIELDS = ("x", "y", "z", "r", "theta", "color", "size", "names", "values",
-                      "lat", "lon", "locations", "hover_name")
+                      "lat", "lon", "locations", "locationmode", "hover_name")
 
     # Fields to skip when flattening section sub-models into Plotly Express kwargs.
     # Keep legacy 'label' here so old payloads never leak it into Plotly Express calls
