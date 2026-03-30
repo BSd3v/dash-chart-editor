@@ -1578,18 +1578,18 @@ class PydanticChartEditor(html.Div):
             fields_repr={"charts": {'fields_repr': charts_fields_repr,
                                     'form_layout': FlatLayoutFormLayout()},
                         "shared_layout": {'form_layout':
-                                          AccordionFormLayout(
-                                              sections=[
-                                                  FormSection(name="General", fields=["title", "showlegend", "legend_position", "legend_orientation", "legend_xanchor", "legend_yanchor", "legend_x", "legend_y"],
-                                                              default_open=True),
-                                                  FormSection(name="Appearance", fields=["template", "boxmode", "barmode", "violinmode", "margin_l", "margin_r", "margin_t", "margin_b"]),
-                                                  FormSection(name="Map/Geo", fields=["projection", "scope", "center", "fitbounds", "mapbox_style", "zoom"]),
-                                                  FormSection(name="Axis", fields=["xaxis_title", "xaxis_type", "xaxis_range", "yaxis_title", "yaxis_type", "yaxis_range"]),
-                                                  FormSection(name="Secondary Axis", fields=["yaxis2_show", "yaxis2_title", "yaxis2_type", "yaxis2_range", "xaxis2_show", "xaxis2_title", "xaxis2_type", "xaxis2_range"]),
-                                              ],
-                                              render_kwargs={"multiple": False}
-                                          )}
-                         },
+                                         AccordionFormLayout(
+                                             sections=[
+                                                 FormSection(name="General", fields=["title", "showlegend", "legend_orientation", "legend_xanchor", "legend_yanchor", "legend_x", "legend_y"],
+                                                             default_open=True),
+                                                 FormSection(name="Appearance", fields=["template", "boxmode", "barmode", "violinmode", "margin_l", "margin_r", "margin_t", "margin_b"]),
+                                                 FormSection(name="Map/Geo", fields=["projection", "scope", "center", "fitbounds", "mapbox_style", "zoom"]),
+                                                 FormSection(name="Axis", fields=["xaxis_title", "xaxis_type", "xaxis_range", "yaxis_title", "yaxis_type", "yaxis_range"]),
+                                                 FormSection(name="Secondary Axis", fields=["yaxis2_show", "yaxis2_title", "yaxis2_type", "yaxis2_range", "xaxis2_show", "xaxis2_title", "xaxis2_type", "xaxis2_range"]),
+                                             ],
+                                             render_kwargs={"multiple": False}
+                                         )}
+                        },
         )
 
     # ── Auto-wired AIO callbacks ───────────────────────────────────────────────
