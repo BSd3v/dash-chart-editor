@@ -421,6 +421,7 @@ class _DataTransforms(BaseModel):
                            'cellEditorParams': {'component': {
                                'type': 'Select',
                                'namespace': 'dash_mantine_components',
+                               'props': {'searchable': True, 'data': []}
                            }},
                            'cellEditorPopup': True,
                            'cellDataType': 'text',
@@ -1458,7 +1459,6 @@ class PydanticChartEditor(html.Div):
             # Suppose valid_cols is your list of valid columns
             columns_config = Patch()
             columns_config[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
-            columns_config[1]['cellEditorParams']['component']['props']['searchable'] = False
             set_props(id_dict, {"columnDefs": columns_config, 'resetColumnState': True, 'columnSize': None})
             update = True
             transforms = chart_data.get("transforms", {})

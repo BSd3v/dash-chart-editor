@@ -134,7 +134,5 @@ dagfuncs.AllComponentEditors = forwardRef((params, ref) => {
         componentForRender = { ...component, props: componentProps };
     }
 
-    console.log('Rendering AllComponentEditor with params:', params, 'and componentForRender:', componentForRender);
-
     return AllComponentEditor(params, componentForRender);
 });
