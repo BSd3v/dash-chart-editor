@@ -170,7 +170,7 @@ def test_unified_editor_state_model():
     )
     assert len(state.charts) == 2
     assert state.charts[0].name == "A"
-    assert state.charts[1].chart_type == "bar"
+    assert state.charts[1].chart.chart_type == "bar"
     assert state.shared_layout.title == "Combined"
     assert state.shared_layout.showlegend is True
 
@@ -189,12 +189,12 @@ def test_chart_entry_section_models():
         }
     )
     entry = state.charts[0]
-    assert hasattr(entry, "common")
-    assert hasattr(entry, "advanced")
-    assert hasattr(entry, "special")
-    assert entry.common.x == "sepal_length"
-    assert entry.common.y == "sepal_width"
-    assert entry.common.color == "species"
+    assert hasattr(entry.chart, "common")
+    assert hasattr(entry.chart, "advanced")
+    assert hasattr(entry.chart, "special")
+    assert entry.chart.common.x == "sepal_length"
+    assert entry.chart.common.y == "sepal_width"
+    assert entry.chart.common.color == "species"
 
 
 def test_chart_entry_flat_input_reshaping():
@@ -211,10 +211,10 @@ def test_chart_entry_flat_input_reshaping():
     )
     entry = state.charts[0]
     # names and values are common params → should land in common section
-    assert entry.common.names == "category"
-    assert entry.common.values == "amount"
+    assert entry.chart.common.names == "category"
+    assert entry.chart.common.values == "amount"
     # x/y are not valid kwargs for pie, so the common section should not have them
-    assert "x" not in type(entry.common).model_fields
+    assert "x" not in type(entry.chart.common).model_fields
 
 
 def test_layout_config_paper_plot_bgcolor():
@@ -267,8 +267,8 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
         }
     )
     assert len(state.charts) == 2
-    assert state.charts[0].chart_type == "scatter"
-    assert state.charts[1].chart_type == "pie"
+    assert state.charts[0].chart.chart_type == "scatter"
+    assert state.charts[1].chart.chart_type == "pie"
     assert state.shared_layout.title == "Combined"
 
     # Flat input (backward compat – should also be accepted via model_validator)
@@ -287,7 +287,7 @@ def test_dynamic_editor_state_accepts_chart_union_entries():
         }
     )
     assert len(state2.charts) == 1
-    assert state2.charts[0].common.x == "sepal_length"
+    assert state2.charts[0].chart.common.x == "sepal_length"
 
 
 def test_dynamic_editor_state_legacy_label_maps_to_name():
