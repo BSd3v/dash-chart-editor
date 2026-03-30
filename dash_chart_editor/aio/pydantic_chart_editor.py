@@ -459,23 +459,12 @@ class _DataGroupBy(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _normalize_groupby_fields(cls, value: Any) -> Any:
-        """Normalize legacy singular keys and string inputs into list fields."""
+        """Normalize string inputs for group_by_columns into list fields."""
         if not isinstance(value, dict):
             return value
 
         result = dict(value)
-
-        # Backward compatibility for legacy payloads.
-        if "group_by" in result and "group_by_columns" not in result:
-            result["group_by_columns"] = result.get("group_by")
-        if "agg_column" in result and "agg_columns" not in result:
-            result["agg_columns"] = result.get("agg_column")
-        # Remove legacy keys after migration.
-        result.pop("group_by", None)
-        result.pop("agg_column", None)
-
         result["group_by_columns"] = cls._normalize_to_str_list(result.get("group_by_columns"))
-        result["agg_columns"] = cls._normalize_to_str_list(result.get("agg_columns"))
         return result
 
 
@@ -1262,8 +1251,8 @@ class PydanticChartEditor(html.Div):
                                           "common", "advanced", "special", "transforms"})
 
     # Transform sub-fields that are column references (need cleaning when data source changes)
-    _TRANSFORM_COL_FIELDS: frozenset = frozenset({"column", "sort_column"})
-    _TRANSFORM_MULTI_COL_FIELDS: frozenset = frozenset({"group_by_columns", "agg_columns"})
+    _TRANSFORM_COL_FIELDS: frozenset = frozenset({"column", "sort_by"})
+    _TRANSFORM_MULTI_COL_FIELDS: frozenset = frozenset({"group_by_columns"})
 
     @staticmethod
     def _flatten_entry_kwargs(entry) -> dict:
@@ -1544,17 +1533,12 @@ class PydanticChartEditor(html.Div):
                             agg for agg in gb["aggregations"]
                             if not isinstance(agg, dict) or agg.get("column") in valid_cols
                         ]
-                    # Legacy schema fallback: agg_columns list
-                    if "agg_columns" in gb:
-                        gb["agg_columns"] = [c for c in (gb.get("agg_columns") or []) if c in valid_cols]
                     transforms["group_by"] = gb
                 sort = transforms.get("sort")
                 if isinstance(sort, dict):
                     sort = dict(sort)
-                    # Current schema uses sort_by; legacy payloads may use sort_column.
-                    for sort_key in ("sort_by", "sort_column"):
-                        if sort_key in sort and sort.get(sort_key) not in valid_cols:
-                            sort[sort_key] = None
+                    if "sort_by" in sort and sort.get("sort_by") not in valid_cols:
+                        sort["sort_by"] = None
                     transforms["sort"] = sort
                 chart["transforms"] = transforms
             new_charts.append(chart)
@@ -1711,9 +1695,9 @@ class PydanticChartEditor(html.Div):
                 "parent": f"charts:{i}:chart_type:transforms:group_by",
                 "meta": "",
             }
-            agg_columns_config = Patch()
-            agg_columns_config[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
-            set_props(agg_id_dict, {"columnDefs": agg_columns_config, 'resetColumnState': True, 'columnSize': None})
+            aggregations_patch = Patch()
+            aggregations_patch[1]['cellEditorParams']['component']['props']['data'] = [{"value": c, "label": c} for c in valid_cols]
+            set_props(agg_id_dict, {"columnDefs": aggregations_patch, 'resetColumnState': True, 'columnSize': None})
 
             transforms = chart_data.get("transforms", {})
             if isinstance(transforms, dict):
