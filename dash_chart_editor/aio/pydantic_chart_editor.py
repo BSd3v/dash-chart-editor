@@ -1634,8 +1634,10 @@ class PydanticChartEditor(html.Div):
             meta = PX_CHART_METADATA.get(chart_type)
             if not meta:
                 continue
-            valid_cols = list(selected_sources.get(src, [{}])[0].keys()) if src in selected_sources else []
-            
+            # Use the precomputed column names mapping as the authoritative source
+            valid_cols = col_names.get(src, []) if isinstance(col_names, dict) else []
+            if not isinstance(valid_cols, list):
+                valid_cols = list(valid_cols)
             chart_data = chart_entry['chart_type']
 
             if _id['field'] == 'column':
