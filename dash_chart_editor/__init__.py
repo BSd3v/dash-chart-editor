@@ -31,7 +31,12 @@ _this_module = _sys.modules[__name__]
 
 async_resources = []
 
-_js_dist = []
+_js_dist = [
+    {
+        "relative_package_path": "dce_functions.js",
+        "namespace": "dash_chart_editor",
+    },
+]
 
 _js_dist.extend(
     [
