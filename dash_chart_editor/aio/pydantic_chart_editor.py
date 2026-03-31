@@ -115,12 +115,35 @@ def _build_chart_type_options(available: list | None = None) -> list:
         key=_chart_type_sort_key,
     )
     options = []
+
+def _build_chart_type_options(available: list | None = None) -> list:
+    """Return grouped option dicts for the chart type selector:
+
+    Returns a list like [{'group': 'Name', 'items': [{...}, ...]}, ...].
+    """
+    all_types = sorted(
+        (available if available is not None else list(PX_CHART_METADATA.keys())),
+        key=_chart_type_sort_key,
+    )
+
+    # Collect by group preserving first-seen group order
+    grouped: dict[str, list] = {}
+    group_order: list[str] = []
     for ct in all_types:
         meta = _CHART_TYPE_META.get(ct, {})
+        group = meta.get("group", "Other")
+        if group not in grouped:
+            grouped[group] = []
+            group_order.append(group)
         label = meta.get("label") or ct.replace("_", " ").title()
         description = meta.get("description", "")
-        options.append({"value": ct, "label": label, "description": description})
-    return options
+        grouped[group].append({"value": ct, "label": label, "description": description})
+
+    # Build final grouped list in stable order
+    result: list[dict] = []
+    for g in group_order:
+        result.append({"group": g, "items": grouped[g]})
+    return result
 
 
 # All chart type names available from Plotly Express metadata.
@@ -972,14 +995,13 @@ def _build_charts_fields_repr(
     charts_repr: dict = {
         'chart_type': {
             "form_layout": FlatSectionFormLayout(),
-            "input_kwargs": {
-                "searchable": True,
-                "data": chart_type_options,
-                "renderOption": {"function": "chartTypeRenderOption"},
-            },
         }
     }
-    inner: dict = {}
+    inner: dict = {"chart_type": {"input_kwargs": {
+                    "searchable": True,
+                    "data": chart_type_options,
+                    "renderOption": {"function": "chartTypeRenderOption"},
+                }}}
 
     if data_source_names:
         ds_labels = [{'value': name, 'label': name} for name in data_source_names]
@@ -1332,7 +1354,8 @@ class PydanticChartEditor(html.Div):
     # Subset of COMMON_PARAM_NAMES that are actual column references (not opacity/hover_data/etc.)
     # used to decide whether a meaningful chart can be rendered.
     _COLUMN_FIELDS = ("x", "y", "z", "r", "theta", "color", "size", "names", "values",
-                      "lat", "lon", "locations", "locationmode", "hover_name")
+                      "lat", "lon", "locations", "locationmode", "hover_name",
+                      "dimensions", "path", "x_start", "x_end", "y_start", "y_end")
 
     # Fields to skip when flattening section sub-models into Plotly Express kwargs.
     # Keep legacy 'label' here so old payloads never leak it into Plotly Express calls
@@ -1400,6 +1423,7 @@ class PydanticChartEditor(html.Div):
 
         chart_type = getattr(entry["chart_type"], "chart_type", None)
         kwargs.pop('name', None)  # name/label is used for display but not a valid px kwarg
+        
         return PydanticChartEditor._to_figure(chart_type, df, kwargs)
 
     @staticmethod

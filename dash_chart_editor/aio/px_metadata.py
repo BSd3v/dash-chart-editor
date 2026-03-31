@@ -68,7 +68,7 @@ COMMON_PARAM_NAMES: frozenset[str] = frozenset({
     "color", "symbol", "size", "text",
     "names", "values", "parents", "ids",
     "lat", "lon", "locations", "locationmode",
-    "opacity", "path"
+    "opacity", "path", "dimensions",
 })
 
 # Special: chart-type-specific behaviours (trendlines, marginals, display modes, etc.)

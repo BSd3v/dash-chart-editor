@@ -33,7 +33,7 @@ async_resources = []
 
 _js_dist = [
     {
-        "relative_package_path": "dce_aggrid.js",
+        "relative_package_path": "dce_functions.js",
         "namespace": "dash_chart_editor",
     },
 ]

@@ -140,3 +140,54 @@ dagfuncs.AllComponentEditors = forwardRef((params, ref) => {
 
     return AllComponentEditor(params, componentForRender);
 });
+
+/**
+ * Custom renderOption function for the chart-type Select in PydanticChartEditor.
+ *
+ * Each option is expected to carry:
+ *   option.value       – px function name, e.g. "scatter"
+ *   option.label       – human-readable label, e.g. "Scatter"
+ *   option.description – one-liner description, e.g. "X vs Y scatter plot"
+ *
+ * Referenced in Python via: renderOption={"function": "chartTypeRenderOption"}
+ */
+var dmcfuncs = window.dashMantineFunctions = window.dashMantineFunctions || {};
+
+dmcfuncs.chartTypeRenderOption = function ({ option, checked, ...rest }) {
+    const label = option.label || option.value || "";
+    const description = option.description || "";
+
+    return React.createElement(
+        "div",
+        {
+            style: {
+                padding: "2px 0",
+                backgroundColor: checked ? "var(--mantine-color-blue-light, #e7f5ff)" : "transparent",
+                width: "100%",
+            },
+        },
+        (checked !== undefined && checked) ? React.createElement(
+            "span",
+            { style: { color: "var(--mantine-color-blue, #228be6)", fontSize: "14px", marginRight: "4px" } },
+            "✓"
+        ) : null,
+        React.createElement(
+            "span",
+            { style: { fontWeight: 500, lineHeight: "1.3" } },
+            label
+        ),
+        description
+            ? React.createElement(
+                  "div",
+                  {
+                      style: {
+                          fontSize: "11px",
+                          color: "var(--mantine-color-dimmed, #868e96)",
+                          lineHeight: "1.2",
+                      },
+                  },
+                  description
+              )
+            : null
+    );
+};
